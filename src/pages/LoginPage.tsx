@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, LogIn, User } from 'lucide-react';
 import Button from '../components/ui/Button';
-import { useAuth } from '../context/AuthContext';
 import SignUpForm from '../components/auth/SignUpForm';
+import { useAppDispatch, useAppSelector } from '../hooks/reduxHooks';
+import { login } from '../features/user/userSlice';
 
 const LoginPage: React.FC = () => {
-  const { login } = useAuth();
+  const dispatch = useAppDispatch();
+  const { loading, error: loginError } = useAppSelector((state) => state.user);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
   
@@ -23,11 +24,9 @@ const LoginPage: React.FC = () => {
     }
     
     try {
-      setIsLoading(true);
-      await login(email, password);
+      await dispatch(login({ email, password })).unwrap();
     } catch (err: any) {
-      // Extract the specific error message from Supabase's response
-      const errorMessage = err?.message;
+      const errorMessage = err.message;
       if (errorMessage?.includes('Invalid login credentials')) {
         setError('Invalid email or password. Please try again.');
       } else if (errorMessage?.includes('Email not confirmed')) {
@@ -35,8 +34,6 @@ const LoginPage: React.FC = () => {
       } else {
         setError('An error occurred during login. Please try again.');
       }
-    } finally {
-      setIsLoading(false);
     }
   };
   
@@ -144,7 +141,7 @@ const LoginPage: React.FC = () => {
                 <Button
                   type="submit"
                   className="w-full"
-                  isLoading={isLoading}
+                  isLoading={loading}
                   leftIcon={<LogIn className="h-4 w-4" />}
                 >
                   Sign in
