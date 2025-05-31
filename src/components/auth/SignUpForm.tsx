@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, UserPlus, AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button';
-import { useAuth } from '../../context/AuthContext';
+import { useAppDispatch, useAppSelector } from '../../hooks/reduxHooks';
+import { signup } from '../../features/user/userSlice';
 
 interface SignUpFormProps {
   onSuccess?: () => void;
@@ -9,7 +10,8 @@ interface SignUpFormProps {
 }
 
 const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
-  const { signup, loading } = useAuth();
+  const dispatch = useAppDispatch();
+  const { loading, error: signupError } = useAppSelector((state) => state.user);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -41,38 +43,30 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
     e.preventDefault();
     setError('');
 
-    // Validate name
     if (!name.trim() || name.length < 2) {
       setError('Name must be at least 2 characters long');
       return;
     }
 
-    // Validate email
     if (!validateEmail(email)) {
       setError('Please enter a valid email address');
       return;
     }
 
-    // Validate password
     const passwordError = validatePassword(password);
     if (passwordError) {
       setError(passwordError);
       return;
     }
 
-    // Check password confirmation
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
     try {
-      const success = await signup(email, password, name);
-      if (success) {
-        onSuccess?.();
-      } else {
-        setError('This email is already registered');
-      }
+      await dispatch(signup({ email, password, name })).unwrap();
+      onSuccess?.();
     } catch (err: any) {
       setError(err.message || 'An error occurred during sign up');
     }
