@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import Navbar from './Navbar';
 import Sidebar from './Sidebar';
-import { useAuth } from '../../context/AuthContext';
 import Dashboard from '../../pages/Dashboard';
 import IdeaGrader from '../../pages/IdeaGrader';
 import SsaCoaching from '../../pages/SsaCoaching';
@@ -11,9 +10,10 @@ import Insights from '../../pages/Insights';
 import Settings from '../../pages/Settings';
 import LoginPage from '../../pages/LoginPage';
 import ProblemCreator from '../../pages/ProblemCreator';
+import { useAppSelector } from '../../hooks/reduxHooks';
 
 const AppLayout: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { id: userId, loading } = useAppSelector((state) => state.user);
   const [activePage, setActivePage] = useState('dashboard');
 
   if (loading) {
@@ -24,7 +24,7 @@ const AppLayout: React.FC = () => {
     );
   }
 
-  if (!user) {
+  if (!userId) {
     return <LoginPage />;
   }
 
