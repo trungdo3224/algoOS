@@ -16,6 +16,7 @@ interface StatCardProps {
     medium?: string;
     hard?: string;
   };
+  footer?: React.ReactNode;
 }
 
 const StatCard: React.FC<StatCardProps> = ({
@@ -25,18 +26,18 @@ const StatCard: React.FC<StatCardProps> = ({
   trend,
   className = '',
   breakdown,
+  footer,
 }) => {
-  // Format number to 2 decimal places if it's a number
   const formattedValue = typeof value === 'number' ? value.toFixed(2) : value;
 
   return (
     <Card className={`bg-gradient-to-br text-white overflow-hidden relative group hover:shadow-lg transition-all duration-300 ${className}`}>
-      {/* Background icon */}
-      <div className="absolute top-0 right-0 w-32 h-32 -mr-8 -mt-8 opacity-10 transform group-hover:scale-110 transition-transform duration-300">
-        <Icon className="w-full h-full" />
+      <div className="absolute -top-6 -right-6">
+        <div className="w-12 h-12 bg-white bg-opacity-10 rounded-full flex items-center justify-center transform rotate-12 group-hover:rotate-0 transition-transform duration-300">
+          <Icon className="h-6 w-6" />
+        </div>
       </div>
 
-      {/* Content */}
       <div className="relative z-10">
         <div className="flex items-center">
           <div className="rounded-lg bg-white bg-opacity-20 p-3 mr-4 backdrop-blur-sm">
@@ -79,6 +80,12 @@ const StatCard: React.FC<StatCardProps> = ({
                 <div className="text-white text-opacity-90">{breakdown.hard}</div>
               </div>
             )}
+          </div>
+        )}
+
+        {footer && (
+          <div className="mt-4 pt-4 border-t border-white border-opacity-20">
+            {footer}
           </div>
         )}
       </div>
