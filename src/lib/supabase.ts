@@ -36,6 +36,9 @@ export type Problem = {
   hint?: string;
   status?: ProblemStatus;
   created_at: string;
+  time_taken?: number;
+  attempts?: number;
+  note?: string;
 };
 
 export type Submission = {
