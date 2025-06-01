@@ -6,12 +6,30 @@ import DifficultyDistribution from '../components/dashboard/DifficultyDistributi
 import TagDistribution from '../components/dashboard/TagDistribution';
 import ActivityCalendar from '../components/dashboard/ActivityCalendar';
 import StudySessionCard from '../components/dashboard/StudySessionCard';
+import StatusBarChart from '../components/dashboard/StatusBarChart';
+import StatusPieChart from '../components/dashboard/StatusPieChart';
 import { useUserSubmissions, useUserInsights } from '../hooks/useSupabase';
+import { useAppSelector } from '../hooks/reduxHooks';
+import type { ProblemStatus } from '../lib/supabase';
 
 const Dashboard: React.FC = () => {
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
   const { insights, loading: insightsLoading } = useUserInsights();
+  const { problems } = useAppSelector(state => state.problems);
   
+  // Calculate status stats from problems
+  const statusStats = problems.reduce((acc: { status: ProblemStatus; count: number }[], problem) => {
+    if (problem.status) {
+      const existing = acc.find(s => s.status === problem.status);
+      if (existing) {
+        existing.count++;
+      } else {
+        acc.push({ status: problem.status, count: 1 });
+      }
+    }
+    return acc;
+  }, []);
+
   // Calculate difficulty stats from submissions
   const difficultyStats = {
     easy: submissions?.filter(s => s.problems.difficulty === 'Easy').length || 0,
@@ -179,6 +197,11 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <ProgressChart data={progressData} />
         <DifficultyDistribution stats={difficultyStats} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        <StatusBarChart data={statusStats} />
+        <StatusPieChart data={statusStats} />
       </div>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
