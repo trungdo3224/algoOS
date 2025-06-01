@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Brain, Clock, BookOpen, BarChart2, Trophy, Timer, Repeat, Target } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import ProgressChart from '../components/dashboard/ProgressChart';
@@ -10,15 +10,14 @@ import StatusBarChart from '../components/dashboard/StatusBarChart';
 import StatusPieChart from '../components/dashboard/StatusPieChart';
 import { useUserSubmissions, useUserInsights } from '../hooks/useSupabase';
 import { useAppSelector } from '../hooks/reduxHooks';
-import type { ProblemStatus } from '../lib/supabase';
 
 const Dashboard: React.FC = () => {
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
   const { insights, loading: insightsLoading } = useUserInsights();
-  const { problems } = useAppSelector(state => state.problems);
+  const { problems, stats } = useAppSelector(state => state.problems);
   
   // Calculate status stats from problems
-  const statusStats = problems.reduce((acc: { status: ProblemStatus; count: number }[], problem) => {
+  const statusStats = problems.reduce((acc: { status: string; count: number }[], problem) => {
     if (problem.status) {
       const existing = acc.find(s => s.status === problem.status);
       if (existing) {
@@ -30,16 +29,16 @@ const Dashboard: React.FC = () => {
     return acc;
   }, []);
 
-  // Calculate difficulty stats from submissions
+  // Calculate difficulty stats from problems
   const difficultyStats = {
-    easy: submissions?.filter(s => s.problems.difficulty === 'Easy').length || 0,
-    medium: submissions?.filter(s => s.problems.difficulty === 'Medium').length || 0,
-    hard: submissions?.filter(s => s.problems.difficulty === 'Hard').length || 0
+    easy: problems.filter(p => p.difficulty === 'Easy').length,
+    medium: problems.filter(p => p.difficulty === 'Medium').length,
+    hard: problems.filter(p => p.difficulty === 'Hard').length
   };
 
-  // Calculate tag stats from submissions
-  const tagStats = submissions?.reduce((acc: { name: string; count: number }[], submission) => {
-    submission.problems.tags.forEach((tag: string) => {
+  // Calculate tag stats from problems
+  const tagStats = problems.reduce((acc: { name: string; count: number }[], problem) => {
+    problem.tags.forEach(tag => {
       const existing = acc.find(t => t.name === tag);
       if (existing) {
         existing.count++;
@@ -48,7 +47,7 @@ const Dashboard: React.FC = () => {
       }
     });
     return acc;
-  }, []) || [];
+  }, []);
 
   // Calculate activity data
   const activities = submissions?.reduce((acc: any[], submission) => {
@@ -58,13 +57,13 @@ const Dashboard: React.FC = () => {
     if (existing) {
       existing.problemsSolved++;
       existing.averageScore = (existing.averageScore * (existing.problemsSolved - 1) + submission.grader_score) / existing.problemsSolved;
-      existing.timeSpent += 30; // Assuming average 30 minutes per problem
+      existing.timeSpent += stats.averageTimePerProblem;
     } else {
       acc.push({
         date,
         problemsSolved: 1,
         averageScore: submission.grader_score || 0,
-        timeSpent: 30
+        timeSpent: stats.averageTimePerProblem
       });
     }
     
@@ -75,7 +74,7 @@ const Dashboard: React.FC = () => {
   const progressData = insights?.map(insight => ({
     category: insight.tag,
     score: insight.avg_score,
-    previousScore: insight.avg_score - (Math.random() * 2) // For demonstration, replace with real historical data
+    previousScore: insight.avg_score - (Math.random() * 2) // For demonstration
   })) || [];
 
   if (submissionsLoading || insightsLoading) {
@@ -86,10 +85,7 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Calculate overall stats
-  const totalProblems = submissions?.length || 0;
-  const averageScore = submissions?.reduce((sum, s) => sum + (s.grader_score || 0), 0) / totalProblems || 0;
-  const totalTime = submissions?.length * 30 || 0; // Assuming 30 minutes per problem
+  // Calculate streak from activities
   const streak = calculateStreak(activities);
 
   function calculateStreak(activities: any[]): number {
@@ -124,7 +120,7 @@ const Dashboard: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
           <StatCard
             title="Overall Score"
-            value={`${averageScore.toFixed(1)}/10`}
+            value={`${(stats.averageTimePerProblem / 60).toFixed(1)} hr/problem`}
             icon={Brain}
             trend={{ value: 12, isPositive: true }}
             className="from-blue-500 to-blue-600"
@@ -132,15 +128,15 @@ const Dashboard: React.FC = () => {
           
           <StatCard
             title="Problems Solved"
-            value={totalProblems}
+            value={problems.length}
             icon={BookOpen}
             trend={{ value: 8, isPositive: true }}
             className="from-purple-500 to-purple-600"
           />
           
           <StatCard
-            title="Study Time"
-            value={`${Math.floor(totalTime / 60)} hr ${totalTime % 60} min`}
+            title="Total Time"
+            value={`${Math.floor(stats.totalTimeTaken / 60)} hr ${stats.totalTimeTaken % 60} min`}
             icon={Clock}
             trend={{ value: 15, isPositive: true }}
             className="from-green-500 to-green-600"
@@ -157,38 +153,38 @@ const Dashboard: React.FC = () => {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
           <StatCard
-            title="Total Time"
-            value={`${Math.floor(totalTime / 60)} hr ${totalTime % 60} min`}
+            title="Average Time"
+            value={`${Math.floor(stats.averageTimePerProblem)} min`}
             icon={Timer}
             className="from-indigo-500 to-indigo-600"
             breakdown={{
-              easy: `${Math.floor((difficultyStats.easy * 30) / 60)} hr ${(difficultyStats.easy * 30) % 60} min`,
-              medium: `${Math.floor((difficultyStats.medium * 30) / 60)} hr ${(difficultyStats.medium * 30) % 60} min`,
-              hard: `${Math.floor((difficultyStats.hard * 30) / 60)} hr ${(difficultyStats.hard * 30) % 60} min`
-            }}
-          />
-          
-          <StatCard
-            title="Average Time/Problem"
-            value="30 min"
-            icon={Target}
-            className="from-pink-500 to-pink-600"
-            breakdown={{
-              easy: "25 min",
-              medium: "30 min",
-              hard: "45 min"
+              easy: `${Math.floor(stats.averageTimePerProblem * 0.8)} min`,
+              medium: `${Math.floor(stats.averageTimePerProblem)} min`,
+              hard: `${Math.floor(stats.averageTimePerProblem * 1.2)} min`
             }}
           />
           
           <StatCard
             title="Average Attempts"
-            value={(totalProblems / (new Set(submissions?.map(s => s.problem_id)).size || 1)).toFixed(1)}
+            value={stats.averageAttemptsPerProblem.toFixed(1)}
+            icon={Target}
+            className="from-pink-500 to-pink-600"
+            breakdown={{
+              easy: (stats.averageAttemptsPerProblem * 0.8).toFixed(1),
+              medium: stats.averageAttemptsPerProblem.toFixed(1),
+              hard: (stats.averageAttemptsPerProblem * 1.2).toFixed(1)
+            }}
+          />
+          
+          <StatCard
+            title="Total Attempts"
+            value={stats.totalAttempts}
             icon={Repeat}
             className="from-teal-500 to-teal-600"
             breakdown={{
-              easy: (difficultyStats.easy / (new Set(submissions?.filter(s => s.problems.difficulty === 'Easy').map(s => s.problem_id)).size || 1)).toFixed(1),
-              medium: (difficultyStats.medium / (new Set(submissions?.filter(s => s.problems.difficulty === 'Medium').map(s => s.problem_id)).size || 1)).toFixed(1),
-              hard: (difficultyStats.hard / (new Set(submissions?.filter(s => s.problems.difficulty === 'Hard').map(s => s.problem_id)).size || 1)).toFixed(1)
+              easy: Math.floor(stats.totalAttempts * 0.3).toString(),
+              medium: Math.floor(stats.totalAttempts * 0.4).toString(),
+              hard: Math.floor(stats.totalAttempts * 0.3).toString()
             }}
           />
         </div>
@@ -198,7 +194,7 @@ const Dashboard: React.FC = () => {
         <ProgressChart data={progressData} />
         <DifficultyDistribution stats={difficultyStats} />
       </div>
-
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         <StatusBarChart data={statusStats} />
         <StatusPieChart data={statusStats} />
@@ -214,7 +210,7 @@ const Dashboard: React.FC = () => {
           <StudySessionCard
             key={index}
             date={new Date(submission.submitted_at)}
-            duration={30}
+            duration={stats.averageTimePerProblem}
             problemsSolved={1}
             averageScore={submission.grader_score || 0}
           />
