@@ -48,11 +48,16 @@ export const updateProblem = createAsyncThunk(
       .from('problems')
       .update(updates)
       .eq('problem_id', id)
-      .select()
-      .single();
+      .select();
 
     if (error) throw error;
-    return data;
+    
+    // Check if any rows were affected by the update
+    if (!data || data.length === 0) {
+      throw new Error('Problem not found for update: no rows affected.');
+    }
+    
+    return data[0];
   }
 );
 
