@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Minus, HelpCircle, Tag as TagIcon, FileText, AlertTriangle } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import type { ProblemStatus } from '../../lib/supabase';
+import type { Problem, ProblemStatus } from '../../lib/supabase';
 
 interface Example {
   input: string;
@@ -24,6 +24,7 @@ interface ProblemFormData {
 interface ProblemFormProps {
   onSubmit: (data: ProblemFormData) => void;
   isLoading?: boolean;
+  initialData?: Problem | null;
 }
 
 const AVAILABLE_TAGS = [
@@ -42,7 +43,11 @@ const PROBLEM_STATUSES: ProblemStatus[] = [
   'Đã ôn tập'
 ];
 
-const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit, isLoading = false }) => {
+const ProblemForm: React.FC<ProblemFormProps> = ({ 
+  onSubmit, 
+  isLoading = false,
+  initialData = null
+}) => {
   const [formData, setFormData] = useState<ProblemFormData>({
     title: '',
     description: '',
@@ -55,6 +60,27 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit, isLoading = false }
   });
 
   const [errors, setErrors] = useState<Partial<Record<keyof ProblemFormData, string>>>({});
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData({
+        title: initialData.title,
+        description: initialData.description,
+        difficulty: initialData.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard',
+        tags: initialData.tags,
+        examples: [
+          {
+            input: initialData.example_input || '',
+            output: initialData.example_output || '',
+            explanation: ''
+          }
+        ],
+        constraints: initialData.constraints,
+        hint: initialData.hint || '',
+        status: initialData.status || 'Cần ôn tập sớm'
+      });
+    }
+  }, [initialData]);
 
   const validateForm = () => {
     const newErrors: Partial<Record<keyof ProblemFormData, string>> = {};
@@ -119,7 +145,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit, isLoading = false }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} className="space-y-6">
       <div className="space-y-6">
         <div>
           <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -372,7 +398,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({ onSubmit, isLoading = false }
           leftIcon={<Plus className="h-4 w-4" />}
           className="w-full sm:w-auto"
         >
-          Create Problem
+          {initialData ? 'Update Problem' : 'Create Problem'}
         </Button>
       </div>
     </form>
