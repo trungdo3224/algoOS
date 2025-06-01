@@ -30,6 +30,7 @@ const ProblemCreator: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [apiError, setApiError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
 
@@ -42,6 +43,7 @@ const ProblemCreator: React.FC = () => {
 
     setIsSubmitting(true);
     setSuccessMessage('');
+    setApiError(null);
 
     try {
       const problemData = {
@@ -57,6 +59,14 @@ const ProblemCreator: React.FC = () => {
       };
 
       if (selectedProblem) {
+        // For updates, first check if the problem still exists
+        const existingProblems = await dispatch(fetchProblems()).unwrap();
+        const problemExists = existingProblems.some(p => p.problem_id === selectedProblem.problem_id);
+        
+        if (!problemExists) {
+          throw new Error('Problem not found. It may have been deleted.');
+        }
+        
         await dispatch(updateProblem({ 
           id: selectedProblem.problem_id, 
           updates: problemData 
@@ -69,8 +79,19 @@ const ProblemCreator: React.FC = () => {
 
       setIsModalOpen(false);
       setSelectedProblem(null);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error saving problem:', err);
+      let errorMessage = 'An error occurred while saving the problem.';
+      
+      if (err.message?.includes('not found') || err.message?.includes('no rows')) {
+        errorMessage = selectedProblem 
+          ? 'The problem you are trying to update no longer exists.'
+          : 'Failed to create the problem. Please try again.';
+      } else if (err.message?.includes('unique constraint')) {
+        errorMessage = 'A problem with this title already exists.';
+      }
+      
+      setApiError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -78,6 +99,8 @@ const ProblemCreator: React.FC = () => {
 
   const handleEdit = (problem: Problem) => {
     setSelectedProblem(problem);
+    setApiError(null);
+    setSuccessMessage('');
     setIsModalOpen(true);
   };
 
@@ -125,6 +148,8 @@ const ProblemCreator: React.FC = () => {
         <Button
           onClick={() => {
             setSelectedProblem(null);
+            setApiError(null);
+            setSuccessMessage('');
             setIsModalOpen(true);
           }}
           leftIcon={<Plus className="h-4 w-4" />}
@@ -235,6 +260,8 @@ const ProblemCreator: React.FC = () => {
                   onClick={() => {
                     setIsModalOpen(false);
                     setSelectedProblem(null);
+                    setApiError(null);
+                    setSuccessMessage('');
                   }}
                   className="text-gray-400 hover:text-gray-500"
                 >
@@ -248,6 +275,12 @@ const ProblemCreator: React.FC = () => {
               {successMessage && (
                 <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
                   {successMessage}
+                </div>
+              )}
+
+              {apiError && (
+                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                  {apiError}
                 </div>
               )}
 
