@@ -17,7 +17,7 @@ const ProgressChart: React.FC<ProgressChartProps> = ({ data }) => {
 
   return (
     <div className="w-full overflow-x-auto">
-      <div className="min-w-fit" style={{ width: `${Math.max(500, totalWidth + 40)}px` }}>
+      <div className="min-w-fit\" style={{ width: `${Math.max(500, totalWidth + 40)}px` }}>
         <div className="flex items-end h-52 mb-4 relative">
           {/* Y-axis labels */}
           <div className="absolute left-0 inset-y-0 w-12 flex flex-col justify-between text-sm text-gray-500 -ml-14">
