@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, BookOpen, Tag, Clock } from 'lucide-react';
+import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2 } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProblemForm from '../components/problem-creator/ProblemForm';
 import Button from '../components/ui/Button';
-import { useAppSelector } from '../hooks/reduxHooks';
-import { supabase } from '../lib/supabase';
+import { useAppDispatch, useAppSelector } from '../hooks/reduxHooks';
+import { fetchProblems, createProblem, updateProblem, deleteProblem } from '../features/problems/problemSlice';
 import type { Problem, ProblemStatus } from '../lib/supabase';
 
 interface ProblemData {
@@ -23,42 +23,25 @@ interface ProblemData {
 }
 
 const ProblemCreator: React.FC = () => {
+  const dispatch = useAppDispatch();
   const { id: userId } = useAppSelector((state) => state.user);
+  const { problems, loading, error } = useAppSelector((state) => state.problems);
+  
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
-  const [error, setError] = useState('');
-  const [problems, setProblems] = useState<Problem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
 
   useEffect(() => {
-    fetchProblems();
-  }, []);
-
-  const fetchProblems = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('problems')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setProblems(data || []);
-    } catch (err) {
-      console.error('Error fetching problems:', err);
-      setError('Failed to load problems');
-    } finally {
-      setLoading(false);
-    }
-  };
+    dispatch(fetchProblems());
+  }, [dispatch]);
 
   const handleSubmit = async (data: ProblemData) => {
     if (!userId) return;
 
     setIsSubmitting(true);
     setSuccessMessage('');
-    setError('');
 
     try {
       const problemData = {
@@ -73,20 +56,38 @@ const ProblemCreator: React.FC = () => {
         status: data.status
       };
 
-      const { error: insertError } = await supabase
-        .from('problems')
-        .insert(problemData);
+      if (selectedProblem) {
+        await dispatch(updateProblem({ 
+          id: selectedProblem.problem_id, 
+          updates: problemData 
+        })).unwrap();
+        setSuccessMessage('Problem updated successfully!');
+      } else {
+        await dispatch(createProblem(problemData)).unwrap();
+        setSuccessMessage('Problem created successfully!');
+      }
 
-      if (insertError) throw insertError;
-
-      setSuccessMessage('Problem created successfully!');
       setIsModalOpen(false);
-      fetchProblems();
+      setSelectedProblem(null);
     } catch (err) {
-      console.error('Error creating problem:', err);
-      setError('Failed to create problem. Please try again.');
+      console.error('Error saving problem:', err);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleEdit = (problem: Problem) => {
+    setSelectedProblem(problem);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    if (window.confirm('Are you sure you want to delete this problem?')) {
+      try {
+        await dispatch(deleteProblem(id)).unwrap();
+      } catch (err) {
+        console.error('Error deleting problem:', err);
+      }
     }
   };
 
@@ -122,7 +123,10 @@ const ProblemCreator: React.FC = () => {
           </p>
         </div>
         <Button
-          onClick={() => setIsModalOpen(true)}
+          onClick={() => {
+            setSelectedProblem(null);
+            setIsModalOpen(true);
+          }}
           leftIcon={<Plus className="h-4 w-4" />}
         >
           Add New Problem
@@ -185,16 +189,32 @@ const ProblemCreator: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <div className="flex flex-wrap gap-2 ml-4">
-                  {problem.tags.map((tag, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700"
+                <div className="flex items-start space-x-4">
+                  <div className="flex flex-wrap gap-2">
+                    {problem.tags.map((tag, index) => (
+                      <span
+                        key={index}
+                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700"
+                      >
+                        <Tag className="h-3 w-3 mr-1" />
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEdit(problem)}
+                      className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
                     >
-                      <Tag className="h-3 w-3 mr-1" />
-                      {tag}
-                    </span>
-                  ))}
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(problem.problem_id)}
+                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -202,15 +222,20 @@ const ProblemCreator: React.FC = () => {
         </div>
       )}
 
-      {/* Create Problem Modal */}
+      {/* Create/Edit Problem Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">Create New Problem</h2>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  {selectedProblem ? 'Edit Problem' : 'Create New Problem'}
+                </h2>
                 <button
-                  onClick={() => setIsModalOpen(false)}
+                  onClick={() => {
+                    setIsModalOpen(false);
+                    setSelectedProblem(null);
+                  }}
                   className="text-gray-400 hover:text-gray-500"
                 >
                   <span className="sr-only">Close</span>
@@ -226,7 +251,11 @@ const ProblemCreator: React.FC = () => {
                 </div>
               )}
 
-              <ProblemForm onSubmit={handleSubmit} isLoading={isSubmitting} />
+              <ProblemForm 
+                onSubmit={handleSubmit} 
+                isLoading={isSubmitting}
+                initialData={selectedProblem}
+              />
             </div>
           </div>
         </div>
