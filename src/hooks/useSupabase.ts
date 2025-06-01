@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useAppSelector } from './reduxHooks';
 
 export function useProblems() {
   const [problems, setProblems] = useState([]);
@@ -30,13 +30,13 @@ export function useProblems() {
 }
 
 export function useUserSubmissions() {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     async function fetchSubmissions() {
       try {
@@ -46,7 +46,7 @@ export function useUserSubmissions() {
             *,
             problems (*)
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('submitted_at', { ascending: false });
         
         if (error) throw error;
@@ -59,26 +59,26 @@ export function useUserSubmissions() {
     }
 
     fetchSubmissions();
-  }, [user]);
+  }, [userId]);
 
   return { submissions, loading, error };
 }
 
 export function useUserInsights() {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [insights, setInsights] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     async function fetchInsights() {
       try {
         const { data, error } = await supabase
           .from('insights')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('updated_at', { ascending: false });
         
         if (error) throw error;
@@ -91,19 +91,19 @@ export function useUserInsights() {
     }
 
     fetchInsights();
-  }, [user]);
+  }, [userId]);
 
   return { insights, loading, error };
 }
 
 export function useRevisionHistory() {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [revisions, setRevisions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     async function fetchRevisions() {
       try {
@@ -113,7 +113,7 @@ export function useRevisionHistory() {
             *,
             problems (*)
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('last_attempt', { ascending: false });
         
         if (error) throw error;
@@ -126,19 +126,19 @@ export function useRevisionHistory() {
     }
 
     fetchRevisions();
-  }, [user]);
+  }, [userId]);
 
   return { revisions, loading, error };
 }
 
 export function useVideoFeedback() {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [feedback, setFeedback] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    if (!user) return;
+    if (!userId) return;
 
     async function fetchFeedback() {
       try {
@@ -149,7 +149,7 @@ export function useVideoFeedback() {
             problems (*),
             submissions (*)
           `)
-          .eq('user_id', user.id)
+          .eq('user_id', userId)
           .order('generated_at', { ascending: false });
         
         if (error) throw error;
@@ -162,7 +162,7 @@ export function useVideoFeedback() {
     }
 
     fetchFeedback();
-  }, [user]);
+  }, [userId]);
 
   return { feedback, loading, error };
 }

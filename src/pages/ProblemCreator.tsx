@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProblemForm from '../components/problem-creator/ProblemForm';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../context/AuthContext';
+import { useAppSelector } from '../hooks/reduxHooks';
 import type { ProblemStatus } from '../lib/supabase';
 
 interface ProblemData {
@@ -22,13 +22,13 @@ interface ProblemData {
 }
 
 const ProblemCreator: React.FC = () => {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = async (data: ProblemData) => {
-    if (!user) return;
+    if (!userId) return;
 
     setIsSubmitting(true);
     setSuccessMessage('');
