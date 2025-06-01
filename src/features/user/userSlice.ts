@@ -4,7 +4,7 @@ import { supabase } from "../../lib/supabase";
 export interface UserState {
   id: string | null;
   name: string | null;
-  email: string | null;
+  email: string | undefined;
   profilePicture: string | null;
   loading: boolean;
   error: string | null;
@@ -13,7 +13,7 @@ export interface UserState {
 const initialState: UserState = {
   id: null,
   name: null,
-  email: null,
+  email: undefined,
   profilePicture: null,
   loading: false,
   error: null,
