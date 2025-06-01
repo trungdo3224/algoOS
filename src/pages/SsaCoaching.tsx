@@ -4,7 +4,7 @@ import ProblemStatement from '../components/ssa-coaching/ProblemStatement';
 import CoachingInterface from '../components/ssa-coaching/CoachingInterface';
 import ProblemSelector from '../components/ssa-coaching/ProblemSelector';
 import Button from '../components/ui/Button';
-import { useAuth } from '../context/AuthContext';
+import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import type { Problem, SsaSession } from '../lib/supabase';
 
@@ -17,7 +17,7 @@ interface Message {
 }
 
 const SsaCoaching: React.FC = () => {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [currentStage, setCurrentStage] = useState(1);
   const [isTyping, setIsTyping] = useState(false);
   const [isProblemSelectorOpen, setIsProblemSelectorOpen] = useState(false);
@@ -32,10 +32,10 @@ const SsaCoaching: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedProblem && user) {
+    if (selectedProblem && userId) {
       loadOrCreateSession();
     }
-  }, [selectedProblem, user]);
+  }, [selectedProblem, userId]);
 
   const fetchProblems = async () => {
     try {
@@ -57,14 +57,14 @@ const SsaCoaching: React.FC = () => {
   };
 
   const loadOrCreateSession = async () => {
-    if (!user || !selectedProblem) return;
+    if (!userId || !selectedProblem) return;
 
     try {
       // Try to load existing session
       const { data: existingSessions, error: queryError } = await supabase
         .from('ssa_sessions')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .eq('problem_id', selectedProblem.problem_id)
         .order('started_at', { ascending: false })
         .limit(1);
@@ -90,7 +90,7 @@ const SsaCoaching: React.FC = () => {
         const { data: newSession, error: insertError } = await supabase
           .from('ssa_sessions')
           .insert({
-            user_id: user.id,
+            user_id: userId,
             problem_id: selectedProblem.problem_id,
             current_stage: 1,
             session_data: {
@@ -111,7 +111,7 @@ const SsaCoaching: React.FC = () => {
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!user || !selectedProblem || !currentSession) return;
+    if (!userId || !selectedProblem || !currentSession) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),

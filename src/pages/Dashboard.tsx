@@ -7,10 +7,8 @@ import TagDistribution from '../components/dashboard/TagDistribution';
 import ActivityCalendar from '../components/dashboard/ActivityCalendar';
 import StudySessionCard from '../components/dashboard/StudySessionCard';
 import { useUserSubmissions, useUserInsights } from '../hooks/useSupabase';
-import { useAuth } from '../context/AuthContext';
 
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
   const { insights, loading: insightsLoading } = useUserInsights();
   

@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Save, Bell, Lock, User as UserIcon } from 'lucide-react';
-import Card from '../components/ui/Card';
+import Card from '../components/ui/Car';
 import Button from '../components/ui/Button';
-import { useAuth } from '../context/AuthContext';
+import { useAppSelector } from '../hooks/reduxHooks';
 
 const Settings: React.FC = () => {
-  const { user } = useAuth();
+  const { name: userName, email: userEmail, profilePicture: userProfilePicture } = useAppSelector((state) => state.user);
   const [activeTab, setActiveTab] = useState('profile');
   
   const tabs = [
@@ -26,7 +26,7 @@ const Settings: React.FC = () => {
               <div className="flex items-center">
                 <div className="flex-shrink-0 mr-4">
                   <img
-                    src={user?.profilePicture || 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg'}
+                    src={userProfilePicture || 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg'}
                     alt="User avatar"
                     className="w-16 h-16 rounded-full object-cover"
                   />
@@ -46,7 +46,7 @@ const Settings: React.FC = () => {
                   type="text"
                   id="name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  defaultValue={user?.name}
+                  defaultValue={userName}
                 />
               </div>
               
@@ -58,7 +58,7 @@ const Settings: React.FC = () => {
                   type="email"
                   id="email"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  defaultValue={user?.email}
+                  defaultValue={userEmail}
                 />
               </div>
             </div>

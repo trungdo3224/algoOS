@@ -5,12 +5,12 @@ import IdeaSubmissionForm from '../components/idea-grader/IdeaSubmissionForm';
 import GradingResult from '../components/idea-grader/GradingResult';
 import ProblemSelector from '../components/ssa-coaching/ProblemSelector';
 import Button from '../components/ui/Button';
-import { useAuth } from '../context/AuthContext';
+import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import type { Problem } from '../lib/supabase';
 
 const IdeaGrader: React.FC = () => {
-  const { user } = useAuth();
+  const { id: userId } = useAppSelector((state) => state.user);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isProblemSelectorOpen, setIsProblemSelectorOpen] = useState(false);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -61,7 +61,7 @@ const IdeaGrader: React.FC = () => {
   };
 
   const handleSubmitIdea = async (idea: string) => {
-    if (!user || !selectedProblem) return;
+    if (!userId || !selectedProblem) return;
 
     setIsSubmitting(true);
     setResult(null);
@@ -71,7 +71,7 @@ const IdeaGrader: React.FC = () => {
       const { data: submission, error: submissionError } = await supabase
         .from('submissions')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           problem_id: selectedProblem.problem_id,
           idea: idea,
         })

@@ -1,12 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Brain, Clock, AlertTriangle, Repeat } from 'lucide-react';
 import Card from '../components/ui/Card';
 import RevisionSuggestion from '../components/revision/RevisionSuggestion';
-import { useAuth } from '../context/AuthContext';
 import { useRevisionHistory } from '../hooks/useSupabase';
 
 const Revision: React.FC = () => {
-  const { user } = useAuth();
   const { revisions, loading, error } = useRevisionHistory();
   
   const handleStartRevision = async (id: string) => {

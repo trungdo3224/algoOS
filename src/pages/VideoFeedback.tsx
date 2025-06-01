@@ -2,11 +2,11 @@ import React from 'react';
 import { Calendar, ArrowRight } from 'lucide-react';
 import Card from '../components/ui/Card';
 import VideoFeedback from '../components/video-feedback/VideoFeedback';
-import { useAuth } from '../context/AuthContext';
+import { useAppSelector } from '../hooks/reduxHooks';
 import { useVideoFeedback } from '../hooks/useSupabase';
 
 const VideoFeedbackPage: React.FC = () => {
-  const { user } = useAuth();
+  const { name: userName } = useAppSelector((state) => state.user);
   const { feedback, loading, error } = useVideoFeedback();
 
   if (loading) {
@@ -48,7 +48,7 @@ const VideoFeedbackPage: React.FC = () => {
         {currentFeedback && (
           <div className="lg:col-span-2">
             <VideoFeedback
-              userName={user?.name || ''}
+              userName={userName || ''}
               problemTitle={currentFeedback.problems.title}
               score={currentFeedback.submissions.grader_score}
               feedback={{

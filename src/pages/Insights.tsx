@@ -6,11 +6,9 @@ import ScoreTrend from '../components/insights/ScoreTrend';
 import PatternAnalysis from '../components/insights/PatternAnalysis';
 import WeaknessSummary from '../components/insights/WeaknessSummary';
 import StudyHeatmap from '../components/insights/StudyHeatmap';
-import { useAuth } from '../context/AuthContext';
 import { useUserInsights, useUserSubmissions } from '../hooks/useSupabase';
 
 const Insights: React.FC = () => {
-  const { user } = useAuth();
   const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year'>('month');
   const { insights, loading: insightsLoading } = useUserInsights();
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
