@@ -1,15 +1,21 @@
 import React, { useState } from 'react';
 import { Menu, X, BookOpen, Bell, User, LogOut, Search } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 import Button from '../ui/Button';
+import { useAppDispatch, useAppSelector } from '../../hooks/reduxHooks';
+import { logout } from '../../features/user/userSlice';
 
 const Navbar: React.FC = () => {
-  const { user, logout } = useAuth();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.user);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
+  };
+
+  const handleLogout = () => {
+    dispatch(logout());
   };
 
   const notifications = [
@@ -57,7 +63,7 @@ const Navbar: React.FC = () => {
           
           {/* Desktop menu */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
-            {user ? (
+            {user.id ? (
               <>
                 <div className="relative">
                   <button
@@ -111,7 +117,7 @@ const Navbar: React.FC = () => {
                 <Button 
                   variant="ghost" 
                   size="sm" 
-                  onClick={logout}
+                  onClick={handleLogout}
                   leftIcon={<LogOut className="h-4 w-4" />}
                 >
                   Logout
@@ -150,7 +156,7 @@ const Navbar: React.FC = () => {
       {isMenuOpen && (
         <div className="sm:hidden">
           <div className="pt-2 pb-3 space-y-1">
-            {user ? (
+            {user.id ? (
               <div className="border-t border-gray-200">
                 <div className="p-4 bg-gray-50">
                   <div className="flex items-center">
@@ -175,7 +181,7 @@ const Navbar: React.FC = () => {
 
                 <div className="mt-3 space-y-1">
                   <button
-                    onClick={logout}
+                    onClick={handleLogout}
                     className="w-full flex items-center px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
                   >
                     <LogOut className="mr-3 h-5 w-5 text-gray-400" />

@@ -10,7 +10,8 @@ import {
   LogOut,
   Plus
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import { useAppDispatch } from '../../hooks/reduxHooks';
+import { logout } from '../../features/user/userSlice';
 
 interface NavItemProps {
   icon: React.ReactNode;
@@ -45,7 +46,11 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, onPageChange }) => {
-  const { logout } = useAuth();
+  const dispatch = useAppDispatch();
+  
+  const handleLogout = () => {
+    dispatch(logout());
+  };
   
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
@@ -85,7 +90,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onPageChange }) => {
           onClick={() => onPageChange('settings')}
         />
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="flex items-center w-full px-3 py-2 mt-2 text-sm font-medium text-red-600 rounded-md hover:bg-red-50 transition-colors duration-200"
         >
           <LogOut size={20} className="mr-3" />
