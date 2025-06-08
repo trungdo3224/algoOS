@@ -4,7 +4,11 @@ import Button from '../ui/Button';
 import { useAppDispatch, useAppSelector } from '../../hooks/reduxHooks';
 import { logout } from '../../features/user/userSlice';
 
-const Navbar: React.FC = () => {
+interface NavbarProps {
+  onToggleSidebar?: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
   const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.user);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -36,10 +40,19 @@ const Navbar: React.FC = () => {
   ];
 
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
+    <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between h-16">
           <div className="flex items-center">
+            {/* Mobile menu button */}
+            <button
+              onClick={onToggleSidebar}
+              className="md:hidden inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 mr-2"
+            >
+              <span className="sr-only">Open sidebar</span>
+              <Menu className="block h-6 w-6" />
+            </button>
+
             <div className="flex-shrink-0 flex items-center">
               <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
                 <BookOpen className="h-6 w-6 text-white" />
@@ -68,7 +81,7 @@ const Navbar: React.FC = () => {
                 <div className="relative">
                   <button
                     onClick={() => setShowNotifications(!showNotifications)}
-                    className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-full relative"
+                    className="p-2 text-gray-500 hover:text-gray-600 hover:bg-gray-100 rounded-full relative transition-colors"
                   >
                     <Bell className="h-5 w-5" />
                     <span className="absolute top-1 right-1 h-2 w-2 bg-red-500 rounded-full"></span>
@@ -82,7 +95,7 @@ const Navbar: React.FC = () => {
                       {notifications.map((notification) => (
                         <div
                           key={notification.id}
-                          className={`px-4 py-3 hover:bg-gray-50 cursor-pointer ${
+                          className={`px-4 py-3 hover:bg-gray-50 cursor-pointer transition-colors ${
                             notification.unread ? 'bg-blue-50' : ''
                           }`}
                         >
