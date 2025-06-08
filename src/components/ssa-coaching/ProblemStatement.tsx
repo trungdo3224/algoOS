@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tag, Clock, BarChart, ChevronDown, ChevronUp, Code, FileText, Eye, EyeOff } from 'lucide-react';
+import { Tag, Clock, BarChart, ChevronDown, ChevronUp, Code, FileText, Eye, EyeOff, BookOpen } from 'lucide-react';
 import Card from '../ui/Card';
 
 interface ProblemStatementProps {
@@ -138,11 +138,26 @@ const ProblemStatement: React.FC<ProblemStatementProps> = ({
 
         {showDetails && (
           <div className="space-y-6">
+            {/* Problem Description */}
+            {description && (
+              <div>
+                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
+                  <BookOpen className="h-4 w-4 mr-2 text-blue-600" />
+                  Description
+                </h4>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="text-sm text-blue-800 whitespace-pre-wrap leading-relaxed">
+                    {description}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Example Input/Output */}
             {(exampleInput || exampleOutput) && (
               <div>
                 <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <Code className="h-4 w-4 mr-2 text-blue-600" />
+                  <Code className="h-4 w-4 mr-2 text-green-600" />
                   Example
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
