@@ -32,8 +32,8 @@ const AppLayout: React.FC = () => {
     switch (activePage) {
       case 'dashboard':
         return <Dashboard />;
-      case 'idea-grader':
-        return <IdeaGrader />;
+      // case 'idea-grader':
+      //   return <IdeaGrader />;
       case 'ssa-coaching':
         return <SsaCoaching />;
       case 'revision':

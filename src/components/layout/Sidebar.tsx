@@ -54,7 +54,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onPageChange }) => {
   
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: <Home size={20} /> },
-    { id: 'idea-grader', label: 'AI Idea Grader', icon: <Brain size={20} /> },
+    // { id: 'idea-grader', label: 'AI Idea Grader', icon: <Brain size={20} /> },
     { id: 'ssa-coaching', label: 'SSA Coaching', icon: <MessageCircle size={20} /> },
     { id: 'revision', label: 'Revision', icon: <BookOpen size={20} /> },
     { id: 'video-feedback', label: 'Video Feedback', icon: <Video size={20} /> },

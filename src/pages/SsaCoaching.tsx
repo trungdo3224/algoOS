@@ -120,11 +120,23 @@ const SsaCoaching: React.FC = () => {
       timestamp: new Date(),
       stage: currentStage
     };
-
+    
     setMessages(prev => [...prev, userMessage]);
     setIsTyping(true);
-
     try {
+
+      // Dispatch user message to the backend
+      const { error: insertError } = await supabase
+        .from('ssa_messages')
+        .insert({
+          session_id: currentSession.session_id,
+          user_id: userId,
+          content: userMessage.content,
+          sender: userMessage.sender,
+          timestamp: userMessage.timestamp,
+          stage: userMessage.stage
+        });
+
       // Update session with new message
       const updatedMessages = [...messages, userMessage];
       
