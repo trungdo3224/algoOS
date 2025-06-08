@@ -51,14 +51,13 @@ const SsaCoaching: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('problems')
-        .select('*');
+        .select('*')
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       
       setProblems(data);
-      if (data.length > 0) {
-        setSelectedProblem(data[0]);
-      }
+      // Don't auto-select the first problem - let user choose
     } catch (error) {
       console.error('Error fetching problems:', error);
     } finally {
@@ -84,22 +83,24 @@ const SsaCoaching: React.FC = () => {
       const existingSession = existingSessions && existingSessions.length > 0 ? existingSessions[0] : null;
 
       if (existingSession && existingSession.session_data?.messages) {
+        // Load existing session
         setCurrentSession(existingSession);
-        setCurrentStage(existingSession.current_stage);
+        setCurrentStage(existingSession.current_stage || 1);
         setMessages(existingSession.session_data.messages || []);
         setValidatedStages(existingSession.session_data.validatedStages || []);
         setStageResponses(existingSession.session_data.stageResponses || {});
         setSessionStartTime(new Date(existingSession.started_at));
+        setShowSummary(false);
       } else {
         // Create new session
-        resetSession();
+        await createNewSession();
       }
     } catch (error) {
       console.error('Error loading/creating session:', error);
     }
   };
 
-  const resetSession = async () => {
+  const createNewSession = async () => {
     if (!userId || !selectedProblem) return;
 
     const initialMessage = {
@@ -136,8 +137,23 @@ const SsaCoaching: React.FC = () => {
       setSessionStartTime(new Date());
       setShowSummary(false);
     } catch (error) {
-      console.error('Error resetting session:', error);
+      console.error('Error creating new session:', error);
     }
+  };
+
+  const resetSession = async () => {
+    if (!userId || !selectedProblem) return;
+
+    // Clear current state first
+    setCurrentStage(1);
+    setValidatedStages([]);
+    setMessages([]);
+    setStageResponses({});
+    setShowSummary(false);
+    setCurrentSession(null);
+
+    // Create new session
+    await createNewSession();
   };
 
   const handleStageChange = (newStage: number) => {
@@ -347,13 +363,17 @@ const SsaCoaching: React.FC = () => {
   };
 
   const handleSelectProblem = async (problem: Problem) => {
-    setSelectedProblem(problem);
-    setIsProblemSelectorOpen(false);
+    // Clear all current state
     setCurrentStage(1);
     setValidatedStages([]);
     setMessages([]);
     setStageResponses({});
     setShowSummary(false);
+    setCurrentSession(null);
+    
+    // Set the new problem - this will trigger the useEffect to load/create session
+    setSelectedProblem(problem);
+    setIsProblemSelectorOpen(false);
   };
 
   const handleAddNewProblem = () => {
@@ -410,7 +430,23 @@ const SsaCoaching: React.FC = () => {
         </Button>
       </div>
 
-      {selectedProblem && (
+      {!selectedProblem ? (
+        <div className="text-center py-12">
+          <div className="mb-4">
+            <div className="mx-auto h-24 w-24 bg-blue-100 rounded-full flex items-center justify-center">
+              <Plus className="h-12 w-12 text-blue-600" />
+            </div>
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Problem Selected</h3>
+          <p className="text-gray-600 mb-4">Choose a problem to start your SSA coaching session.</p>
+          <Button
+            onClick={() => setIsProblemSelectorOpen(true)}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            Choose Problem
+          </Button>
+        </div>
+      ) : (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-1">
             <ProblemStatement
