@@ -1,4 +1,4 @@
-// Define types for the Learning OS application
+// Define types for the AlgoMind application
 
 export interface User {
   id: string;

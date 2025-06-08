@@ -75,7 +75,7 @@ const NavItem: React.FC<NavItemProps> = ({
 
 interface DynamicSidebarProps {
   activePage: string;
-  onPageChange: (page: string) => void;
+  onPageChange: (page: string, options?: { openModal?: boolean }) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -96,9 +96,8 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
   const handleProblemsClick = () => {
     setProblemsExpanded(!problemsExpanded);
   };
-
-  const handleNavigation = (page: string) => {
-    onPageChange(page);
+  const handleNavigation = (page: string, options?: { openModal?: boolean }) => {
+    onPageChange(page, options);
   };
   
   const navItems = [
@@ -133,7 +132,6 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
       onClick: () => handleNavigation('insights')
     },
   ];
-
   const problemsSubItems = [
     {
       id: 'my-problems',
@@ -145,14 +143,14 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
       id: 'create-new',
       label: 'Create New',
       icon: <PlusCircle size={18} />,
-      onClick: () => handleNavigation('problem-creator')
+      onClick: () => handleNavigation('problem-creator', { openModal: true })
     }
   ];
 
   if (isCollapsed) {
     return (
       <div className="w-16 bg-white h-full border-r border-gray-200 flex flex-col">
-        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
+        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-hidden">
           <div className="px-3 mb-6">
             <button
               onClick={onToggleCollapse}
@@ -266,10 +264,10 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-sm">LO</span>
+                <span className="text-white font-bold text-sm">AL</span>
               </div>
               <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-transparent bg-clip-text">
-                Learning OS
+                AlgoMind
               </h2>
             </div>
             {onToggleCollapse && (

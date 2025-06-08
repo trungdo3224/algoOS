@@ -30,12 +30,17 @@ interface FilterState {
   tags: string[];
 }
 
-const ProblemCreator: React.FC = () => {
+interface ProblemCreatorProps {
+  openModal?: boolean;
+  onModalClose?: () => void;
+}
+
+const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onModalClose }) => {
   const dispatch = useAppDispatch();
   const { id: userId } = useAppSelector((state) => state.user);
   const { problems, loading, error } = useAppSelector((state) => state.problems);
   
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(openModal);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [apiError, setApiError] = useState<string | null>(null);
@@ -50,6 +55,21 @@ const ProblemCreator: React.FC = () => {
   useEffect(() => {
     dispatch(fetchProblems());
   }, [dispatch]);
+
+  // Effect to sync with parent component's modal state
+  useEffect(() => {
+    setIsModalOpen(openModal);
+  }, [openModal]);
+
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setSelectedProblem(null);
+    setApiError(null);
+    setSuccessMessage('');
+    if (onModalClose) {
+      onModalClose();
+    }
+  };
 
   const handleSubmit = async (data: ProblemData) => {
     if (!userId) return;
@@ -350,12 +370,7 @@ const ProblemCreator: React.FC = () => {
                   {selectedProblem ? 'Edit Problem' : 'Create New Problem'}
                 </h2>
                 <button
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setSelectedProblem(null);
-                    setApiError(null);
-                    setSuccessMessage('');
-                  }}
+                  onClick={closeModal}
                   className="text-gray-400 hover:text-gray-500"
                 >
                   <span className="sr-only">Close</span>

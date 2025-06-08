@@ -66,7 +66,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onPageChange }) => {
     <div className="w-64 bg-white h-full border-r border-gray-200 flex flex-col">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="px-4">
-          <h2 className="text-lg font-semibold text-gray-900 mb-6">Learning OS</h2>
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">AlgoMind</h2>
         </div>
         <nav className="mt-5 flex-1 px-4 space-y-1">
           <ul className="space-y-1">

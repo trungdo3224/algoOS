@@ -16,6 +16,7 @@ const AppLayout: React.FC = () => {
   const { id: userId, loading } = useAppSelector((state) => state.user);
   const [activePage, setActivePage] = useState('dashboard');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [openProblemModal, setOpenProblemModal] = useState(false);
 
   if (loading) {
     return (
@@ -28,6 +29,15 @@ const AppLayout: React.FC = () => {
   if (!userId) {
     return <LoginPage />;
   }
+
+  const handlePageChange = (page: string, options?: { openModal?: boolean }) => {
+    setActivePage(page);
+    if (options?.openModal) {
+      setOpenProblemModal(true);
+    } else {
+      setOpenProblemModal(false);
+    }
+  };
 
   const renderContent = () => {
     switch (activePage) {
@@ -48,7 +58,7 @@ const AppLayout: React.FC = () => {
       case 'problem-creator':
       case 'my-problems':
       case 'create-new':
-        return <ProblemCreator />;
+        return <ProblemCreator openModal={openProblemModal} onModalClose={() => setOpenProblemModal(false)} />;
       default:
         return <Dashboard />;
     }
@@ -65,7 +75,7 @@ const AppLayout: React.FC = () => {
         <div className="hidden md:flex md:flex-shrink-0">
           <DynamicSidebar 
             activePage={activePage} 
-            onPageChange={setActivePage}
+            onPageChange={handlePageChange}
             isCollapsed={isSidebarCollapsed}
             onToggleCollapse={toggleSidebar}
           />
@@ -78,8 +88,8 @@ const AppLayout: React.FC = () => {
             <div className="relative flex-1 flex flex-col max-w-xs w-full bg-white">
               <DynamicSidebar 
                 activePage={activePage} 
-                onPageChange={(page) => {
-                  setActivePage(page);
+                onPageChange={(page, options) => {
+                  handlePageChange(page, options);
                   setIsSidebarCollapsed(true);
                 }}
                 isCollapsed={false}

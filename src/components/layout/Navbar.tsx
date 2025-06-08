@@ -58,7 +58,7 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
                 <BookOpen className="h-6 w-6 text-white" />
               </div>
               <span className="ml-3 text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-transparent bg-clip-text">
-                Learning OS
+                AlgoMind
               </span>
             </div>
 
