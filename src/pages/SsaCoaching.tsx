@@ -3,11 +3,15 @@ import { Plus } from 'lucide-react';
 import ProblemStatement from '../components/ssa-coaching/ProblemStatement';
 import CoachingInterface from '../components/ssa-coaching/CoachingInterface';
 import ProblemSelector from '../components/ssa-coaching/ProblemSelector';
+import StageNavigation from '../components/ssa-coaching/StageNavigation';
+import SessionControls from '../components/ssa-coaching/SessionControls';
+import SessionSummary from '../components/ssa-coaching/SessionSummary';
 import Button from '../components/ui/Button';
 import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import { validateStage } from '../services/gemini';
 import type { Problem, SsaSession } from '../lib/supabase';
+import type { SSASession } from '../types/ssa';
 
 interface Message {
   id: string;
@@ -20,14 +24,18 @@ interface Message {
 const SsaCoaching: React.FC = () => {
   const { id: userId } = useAppSelector((state) => state.user);
   const [currentStage, setCurrentStage] = useState(1);
+  const [validatedStages, setValidatedStages] = useState<number[]>([]);
   const [isTyping, setIsTyping] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [isProblemSelectorOpen, setIsProblemSelectorOpen] = useState(false);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<SsaSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isValidating, setIsValidating] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
+  const [stageResponses, setStageResponses] = useState<{[key: number]: {userAnswer: string, assistantFeedback: string}}>({});
 
   useEffect(() => {
     fetchProblems();
@@ -75,40 +83,85 @@ const SsaCoaching: React.FC = () => {
 
       const existingSession = existingSessions && existingSessions.length > 0 ? existingSessions[0] : null;
 
-      if (existingSession) {
+      if (existingSession && existingSession.session_data?.messages) {
         setCurrentSession(existingSession);
         setCurrentStage(existingSession.current_stage);
         setMessages(existingSession.session_data.messages || []);
+        setValidatedStages(existingSession.session_data.validatedStages || []);
+        setStageResponses(existingSession.session_data.stageResponses || {});
+        setSessionStartTime(new Date(existingSession.started_at));
       } else {
         // Create new session
-        const initialMessage = {
-          id: Date.now().toString(),
-          content: `Hello! I'm your Socratic Solve Assistant. Let's solve "${selectedProblem.title}" together by breaking it down step by step. First, could you explain in your own words what the problem is asking for?`,
-          sender: 'assistant' as const,
-          timestamp: new Date(),
-          stage: 1
-        };
-
-        const { data: newSession, error: insertError } = await supabase
-          .from('ssa_sessions')
-          .insert({
-            user_id: userId,
-            problem_id: selectedProblem.problem_id,
-            current_stage: 1,
-            session_data: {
-              messages: [initialMessage]
-            }
-          })
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-
-        setCurrentSession(newSession);
-        setMessages([initialMessage]);
+        resetSession();
       }
     } catch (error) {
       console.error('Error loading/creating session:', error);
+    }
+  };
+
+  const resetSession = async () => {
+    if (!userId || !selectedProblem) return;
+
+    const initialMessage = {
+      id: Date.now().toString(),
+      content: `Hello! I'm your Socratic Solve Assistant. Let's solve "${selectedProblem.title}" together by breaking it down step by step. First, could you explain in your own words what the problem is asking for?`,
+      sender: 'assistant' as const,
+      timestamp: new Date(),
+      stage: 1
+    };
+
+    try {
+      const { data: newSession, error: insertError } = await supabase
+        .from('ssa_sessions')
+        .insert({
+          user_id: userId,
+          problem_id: selectedProblem.problem_id,
+          current_stage: 1,
+          session_data: {
+            messages: [initialMessage],
+            validatedStages: [],
+            stageResponses: {}
+          }
+        })
+        .select()
+        .single();
+
+      if (insertError) throw insertError;
+
+      setCurrentSession(newSession);
+      setCurrentStage(1);
+      setValidatedStages([]);
+      setMessages([initialMessage]);
+      setStageResponses({});
+      setSessionStartTime(new Date());
+      setShowSummary(false);
+    } catch (error) {
+      console.error('Error resetting session:', error);
+    }
+  };
+
+  const handleStageChange = (newStage: number) => {
+    if (validatedStages.includes(newStage) || newStage === currentStage) {
+      setCurrentStage(newStage);
+      
+      // Add a message indicating stage change
+      const stageNames = {
+        1: 'Understanding the Problem',
+        2: 'Simulation',
+        3: 'Pattern Recognition',
+        4: 'Validation',
+        5: 'Solution Planning'
+      };
+
+      const stageMessage: Message = {
+        id: Date.now().toString(),
+        content: `You've navigated to Stage ${newStage}: ${stageNames[newStage as keyof typeof stageNames]}. ${newStage < currentStage ? 'Feel free to review or add more thoughts.' : 'Let\'s continue from where we left off.'}`,
+        sender: 'assistant',
+        timestamp: new Date(),
+        stage: newStage
+      };
+
+      setMessages(prev => [...prev, stageMessage]);
     }
   };
 
@@ -133,7 +186,11 @@ const SsaCoaching: React.FC = () => {
       const { error } = await supabase
         .from('ssa_sessions')
         .update({
-          session_data: { messages: updatedMessages }
+          session_data: { 
+            messages: updatedMessages,
+            validatedStages,
+            stageResponses
+          }
         })
         .eq('session_id', currentSession.session_id);
 
@@ -150,21 +207,40 @@ const SsaCoaching: React.FC = () => {
       setIsValidating(false);
       setIsTyping(true);
 
+      // Store stage response
+      const newStageResponses = {
+        ...stageResponses,
+        [currentStage]: {
+          userAnswer: content,
+          assistantFeedback: validation.assistant_reply
+        }
+      };
+      setStageResponses(newStageResponses);
+
       // Create assistant response based on validation
       let assistantResponse = validation.assistant_reply;
-      let nextStage = currentStage;
+      let newValidatedStages = [...validatedStages];
 
-      // If valid and not at final stage, ask about moving to next stage
-      if (validation.is_valid && currentStage < 5) {
-        const stageNames = {
-          1: 'Simulation',
-          2: 'Pattern Recognition', 
-          3: 'Validation',
-          4: 'Solution Implementation'
-        };
-        
-        const nextStageName = stageNames[currentStage as keyof typeof stageNames];
-        assistantResponse += ` Would you like to move on to the next stage: ${nextStageName}? Type 'yes' to continue or keep discussing this stage.`;
+      // If valid and not already validated, mark stage as validated
+      if (validation.is_valid && !validatedStages.includes(currentStage)) {
+        newValidatedStages.push(currentStage);
+        setValidatedStages(newValidatedStages);
+
+        // If not at final stage, ask about moving to next stage
+        if (currentStage < 5) {
+          const stageNames = {
+            1: 'Simulation',
+            2: 'Pattern Recognition', 
+            3: 'Validation',
+            4: 'Solution Implementation'
+          };
+          
+          const nextStageName = stageNames[currentStage as keyof typeof stageNames];
+          assistantResponse += ` Great work! Would you like to move on to the next stage: ${nextStageName}? Type 'yes' to continue or keep discussing this stage.`;
+        } else {
+          // Completed all stages
+          assistantResponse += ` Excellent! You've successfully completed all stages of the problem-solving process. Well done!`;
+        }
       }
 
       setTimeout(async () => {
@@ -180,23 +256,34 @@ const SsaCoaching: React.FC = () => {
         setMessages(finalMessages);
         setIsTyping(false);
 
-        // Update session with assistant response
+        // Update session with assistant response and validation status
         await supabase
           .from('ssa_sessions')
           .update({
-            session_data: { messages: finalMessages }
+            session_data: { 
+              messages: finalMessages,
+              validatedStages: newValidatedStages,
+              stageResponses: newStageResponses
+            }
           })
           .eq('session_id', currentSession.session_id);
 
-        // Check if user wants to advance to next stage
-        if (validation.is_valid && currentStage < 5 && 
-            (content.toLowerCase().includes('yes') || 
-             content.toLowerCase().includes('next') ||
-             content.toLowerCase().includes('continue'))) {
-          
-          setTimeout(() => {
-            advanceToNextStage();
-          }, 1000);
+        // Check if user wants to advance to next stage or if all stages completed
+        if (validation.is_valid) {
+          if (currentStage === 5 && newValidatedStages.includes(5)) {
+            // Show summary after completing final stage
+            setTimeout(() => {
+              setShowSummary(true);
+            }, 2000);
+          } else if (currentStage < 5 && 
+                    (content.toLowerCase().includes('yes') || 
+                     content.toLowerCase().includes('next') ||
+                     content.toLowerCase().includes('continue'))) {
+            
+            setTimeout(() => {
+              advanceToNextStage();
+            }, 1000);
+          }
         }
       }, 1500);
 
@@ -247,7 +334,11 @@ const SsaCoaching: React.FC = () => {
         .from('ssa_sessions')
         .update({
           current_stage: nextStage,
-          session_data: { messages: [...messages, stageMessage] }
+          session_data: { 
+            messages: [...messages, stageMessage],
+            validatedStages,
+            stageResponses
+          }
         })
         .eq('session_id', currentSession.session_id);
     } catch (error) {
@@ -259,11 +350,39 @@ const SsaCoaching: React.FC = () => {
     setSelectedProblem(problem);
     setIsProblemSelectorOpen(false);
     setCurrentStage(1);
+    setValidatedStages([]);
     setMessages([]);
+    setStageResponses({});
+    setShowSummary(false);
   };
 
   const handleAddNewProblem = () => {
     window.location.href = '/problem-creator';
+  };
+
+  const getSummaryData = () => {
+    const totalTime = (new Date().getTime() - sessionStartTime.getTime()) / (1000 * 60); // in minutes
+    
+    return {
+      problemTitle: selectedProblem?.title || '',
+      completedAt: new Date(),
+      totalTime,
+      stageResponses: Object.fromEntries(
+        Object.entries(stageResponses).map(([stageId, response]) => [
+          stageId,
+          {
+            ...response,
+            stageName: {
+              1: 'Understanding the Problem',
+              2: 'Simulation',
+              3: 'Pattern Recognition',
+              4: 'Validation',
+              5: 'Solution Planning'
+            }[parseInt(stageId)] || `Stage ${stageId}`
+          }
+        ])
+      )
+    };
   };
 
   if (loading) {
@@ -306,13 +425,29 @@ const SsaCoaching: React.FC = () => {
             />
           </div>
 
-          <div className="lg:col-span-2 h-[700px]">
-            <CoachingInterface
-              messages={messages}
-              onSendMessage={handleSendMessage}
+          <div className="lg:col-span-2 space-y-4">
+            <StageNavigation
               currentStage={currentStage}
+              validatedStages={validatedStages}
+              onStageChange={handleStageChange}
+            />
+
+            <SessionControls
+              currentStage={currentStage}
+              validatedStages={validatedStages}
+              onStageChange={handleStageChange}
+              onResetSession={resetSession}
               isLoading={isTyping || isValidating}
             />
+
+            <div className="h-[500px]">
+              <CoachingInterface
+                messages={messages}
+                onSendMessage={handleSendMessage}
+                currentStage={currentStage}
+                isLoading={isTyping || isValidating}
+              />
+            </div>
           </div>
         </div>
       )}
@@ -323,6 +458,17 @@ const SsaCoaching: React.FC = () => {
         onSelectProblem={handleSelectProblem}
         onAddNewProblem={handleAddNewProblem}
       />
+
+      {showSummary && (
+        <SessionSummary
+          summaryData={getSummaryData()}
+          onResetSession={() => {
+            setShowSummary(false);
+            resetSession();
+          }}
+          onClose={() => setShowSummary(false)}
+        />
+      )}
     </div>
   );
 };
