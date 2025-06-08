@@ -6,6 +6,7 @@ import ProblemSelector from '../components/ssa-coaching/ProblemSelector';
 import Button from '../components/ui/Button';
 import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
+import { validateStage } from '../services/gemini';
 import type { Problem, SsaSession } from '../lib/supabase';
 
 interface Message {
@@ -26,6 +27,7 @@ const SsaCoaching: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentSession, setCurrentSession] = useState<SsaSession | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [isValidating, setIsValidating] = useState(false);
 
   useEffect(() => {
     fetchProblems();
@@ -122,7 +124,8 @@ const SsaCoaching: React.FC = () => {
     };
     
     setMessages(prev => [...prev, userMessage]);
-    setIsTyping(true);
+    setIsValidating(true);
+
     try {
       // Update session with new message
       const updatedMessages = [...messages, userMessage];
@@ -136,62 +139,119 @@ const SsaCoaching: React.FC = () => {
 
       if (error) throw error;
 
-      // Simulate AI response
+      // Validate user response with Gemini
+      const validation = await validateStage(
+        currentStage,
+        content,
+        selectedProblem.title,
+        selectedProblem.description || ''
+      );
+
+      setIsValidating(false);
+      setIsTyping(true);
+
+      // Create assistant response based on validation
+      let assistantResponse = validation.assistant_reply;
+      let nextStage = currentStage;
+
+      // If valid and not at final stage, ask about moving to next stage
+      if (validation.is_valid && currentStage < 5) {
+        const stageNames = {
+          1: 'Simulation',
+          2: 'Pattern Recognition', 
+          3: 'Validation',
+          4: 'Solution Implementation'
+        };
+        
+        const nextStageName = stageNames[currentStage as keyof typeof stageNames];
+        assistantResponse += ` Would you like to move on to the next stage: ${nextStageName}? Type 'yes' to continue or keep discussing this stage.`;
+      }
+
       setTimeout(async () => {
-        let response = '';
-        let nextStage = currentStage;
-
-        switch (currentStage) {
-          case 1:
-            response = "Good explanation! Now let's try to understand the constraints better. What's the significance of the constraints in this problem?";
-            nextStage = 2;
-            break;
-          case 2:
-            response = "Excellent observation! Let's try to simulate this with a small example. Can you walk me through how you would solve this with a simple case?";
-            nextStage = 3;
-            break;
-          case 3:
-            response = "I see you're starting to recognize a pattern. Can you identify any similar problems you've solved before?";
-            nextStage = 4;
-            break;
-          case 4:
-            response = "You're on the right track! Let's think about efficiency. What would be the time complexity of your approach?";
-            nextStage = 5;
-            break;
-          case 5:
-            response = "Great thinking! Now that we have a solid approach, let's focus on implementation details. What edge cases should we handle?";
-            break;
-          default:
-            response = "Let's continue exploring this problem together. What are your thoughts?";
-        }
-
         const assistantMessage: Message = {
-          id: Date.now().toString(),
-          content: response,
+          id: (Date.now() + 1).toString(),
+          content: assistantResponse,
           sender: 'assistant',
           timestamp: new Date(),
-          stage: nextStage
+          stage: currentStage
         };
 
-        setMessages(prev => [...prev, assistantMessage]);
+        const finalMessages = [...updatedMessages, assistantMessage];
+        setMessages(finalMessages);
         setIsTyping(false);
 
-        if (nextStage !== currentStage) {
-          setCurrentStage(nextStage);
+        // Update session with assistant response
+        await supabase
+          .from('ssa_sessions')
+          .update({
+            session_data: { messages: finalMessages }
+          })
+          .eq('session_id', currentSession.session_id);
+
+        // Check if user wants to advance to next stage
+        if (validation.is_valid && currentStage < 5 && 
+            (content.toLowerCase().includes('yes') || 
+             content.toLowerCase().includes('next') ||
+             content.toLowerCase().includes('continue'))) {
           
-          // Update session stage
-          await supabase
-            .from('ssa_sessions')
-            .update({
-              current_stage: nextStage,
-              session_data: { messages: [...updatedMessages, assistantMessage] }
-            })
-            .eq('session_id', currentSession.session_id);
+          setTimeout(() => {
+            advanceToNextStage();
+          }, 1000);
         }
       }, 1500);
+
     } catch (error) {
-      console.error('Error updating session:', error);
+      console.error('Error processing message:', error);
+      setIsValidating(false);
       setIsTyping(false);
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: (Date.now() + 2).toString(),
+        content: "I'm having trouble processing your response. Could you please try again?",
+        sender: 'assistant',
+        timestamp: new Date(),
+        stage: currentStage
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+    }
+  };
+
+  const advanceToNextStage = async () => {
+    if (currentStage >= 5 || !currentSession) return;
+
+    const nextStage = currentStage + 1;
+    setCurrentStage(nextStage);
+
+    const stageIntros = {
+      2: "Great! Now let's move to the Simulation stage. Can you walk me through your solution using a concrete example? Pick a simple input and show me step by step how you would solve it.",
+      3: "Excellent simulation! Now for Pattern Recognition. What algorithmic pattern or approach does this problem remind you of? Have you seen similar problems before?",
+      4: "Good pattern identification! Let's move to Validation. How would you verify that your solution is correct? What about edge cases and time/space complexity?",
+      5: "Perfect! Now for the final Solution stage. Let's discuss the implementation details. How would you structure your code? Any optimizations you can think of?"
+    };
+
+    const stageMessage: Message = {
+      id: Date.now().toString(),
+      content: stageIntros[nextStage as keyof typeof stageIntros] || "Let's continue to the next stage.",
+      sender: 'assistant',
+      timestamp: new Date(),
+      stage: nextStage
+    };
+
+    setMessages(prev => [...prev, stageMessage]);
+
+    try {
+      // Update session stage and messages
+      await supabase
+        .from('ssa_sessions')
+        .update({
+          current_stage: nextStage,
+          session_data: { messages: [...messages, stageMessage] }
+        })
+        .eq('session_id', currentSession.session_id);
+    } catch (error) {
+      console.error('Error advancing stage:', error);
     }
   };
 
@@ -236,10 +296,13 @@ const SsaCoaching: React.FC = () => {
           <div className="lg:col-span-1">
             <ProblemStatement
               title={selectedProblem.title}
-              description={selectedProblem.description}
+              description={selectedProblem.description || ''}
               difficulty={selectedProblem.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard'}
               timeEstimate="20-30 min"
               tags={selectedProblem.tags}
+              exampleInput={selectedProblem.example_input || undefined}
+              exampleOutput={selectedProblem.example_output || undefined}
+              constraints={selectedProblem.constraints || undefined}
             />
           </div>
 
@@ -248,7 +311,7 @@ const SsaCoaching: React.FC = () => {
               messages={messages}
               onSendMessage={handleSendMessage}
               currentStage={currentStage}
-              isLoading={isTyping}
+              isLoading={isTyping || isValidating}
             />
           </div>
         </div>
