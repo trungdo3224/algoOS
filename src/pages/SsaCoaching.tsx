@@ -43,6 +43,7 @@ const SsaCoaching: React.FC = () => {
 
   useEffect(() => {
     if (selectedProblem && userId) {
+      console.log('Selected problem changed, loading session for:', selectedProblem.title);
       loadOrCreateSession();
     }
   }, [selectedProblem, userId]);
@@ -57,7 +58,7 @@ const SsaCoaching: React.FC = () => {
       if (error) throw error;
       
       setProblems(data);
-      // Don't auto-select the first problem - let user choose
+      console.log('Fetched problems:', data.length);
     } catch (error) {
       console.error('Error fetching problems:', error);
     } finally {
@@ -66,7 +67,12 @@ const SsaCoaching: React.FC = () => {
   };
 
   const loadOrCreateSession = async () => {
-    if (!userId || !selectedProblem) return;
+    if (!userId || !selectedProblem) {
+      console.log('Missing userId or selectedProblem');
+      return;
+    }
+
+    console.log('Loading or creating session for problem:', selectedProblem.title);
 
     try {
       // Try to load existing session
@@ -83,6 +89,7 @@ const SsaCoaching: React.FC = () => {
       const existingSession = existingSessions && existingSessions.length > 0 ? existingSessions[0] : null;
 
       if (existingSession && existingSession.session_data?.messages) {
+        console.log('Loading existing session');
         // Load existing session
         setCurrentSession(existingSession);
         setCurrentStage(existingSession.current_stage || 1);
@@ -92,6 +99,7 @@ const SsaCoaching: React.FC = () => {
         setSessionStartTime(new Date(existingSession.started_at));
         setShowSummary(false);
       } else {
+        console.log('Creating new session');
         // Create new session
         await createNewSession();
       }
@@ -129,6 +137,7 @@ const SsaCoaching: React.FC = () => {
 
       if (insertError) throw insertError;
 
+      console.log('Created new session:', newSession.session_id);
       setCurrentSession(newSession);
       setCurrentStage(1);
       setValidatedStages([]);
@@ -144,6 +153,8 @@ const SsaCoaching: React.FC = () => {
   const resetSession = async () => {
     if (!userId || !selectedProblem) return;
 
+    console.log('Resetting session');
+    
     // Clear current state first
     setCurrentStage(1);
     setValidatedStages([]);
@@ -363,7 +374,12 @@ const SsaCoaching: React.FC = () => {
   };
 
   const handleSelectProblem = async (problem: Problem) => {
-    // Clear all current state
+    console.log('Problem selected:', problem.title);
+    
+    // Close the modal first
+    setIsProblemSelectorOpen(false);
+    
+    // Clear all current state immediately
     setCurrentStage(1);
     setValidatedStages([]);
     setMessages([]);
@@ -373,7 +389,6 @@ const SsaCoaching: React.FC = () => {
     
     // Set the new problem - this will trigger the useEffect to load/create session
     setSelectedProblem(problem);
-    setIsProblemSelectorOpen(false);
   };
 
   const handleAddNewProblem = () => {
