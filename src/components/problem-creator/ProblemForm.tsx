@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Minus, HelpCircle, Tag as TagIcon, FileText, AlertTriangle, Clock, RefreshCw, StickyNote } from 'lucide-react';
+import { Plus, Minus, HelpCircle, Tag as TagIcon, FileText, AlertTriangle, Clock, RefreshCw, StickyNote, Globe } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
-import type { Problem, ProblemStatus } from '../../lib/supabase';
+import type { Problem, ProblemStatus, ProblemSite } from '../../lib/supabase';
 
 interface Example {
   input: string;
@@ -15,6 +15,7 @@ interface ProblemFormData {
   description: string;
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
+  site?: ProblemSite;
   examples: Example[];
   constraints: string;
   hint?: string;
@@ -46,6 +47,19 @@ const PROBLEM_STATUSES: ProblemStatus[] = [
   'Đã ôn tập'
 ];
 
+const PROBLEM_SITES: ProblemSite[] = [
+  'LeetCode',
+  'Codeforces',
+  'HackerRank',
+  'AtCoder',
+  'CodeChef',
+  'TopCoder',
+  'SPOJ',
+  'GeeksforGeeks',
+  'InterviewBit',
+  'Custom'
+];
+
 const ProblemForm: React.FC<ProblemFormProps> = ({ 
   onSubmit, 
   isLoading = false,
@@ -56,6 +70,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({
     description: '',
     difficulty: 'medium',
     tags: [],
+    site: undefined,
     examples: [{ input: '', output: '', explanation: '' }],
     constraints: '',
     hint: '',
@@ -74,6 +89,7 @@ const ProblemForm: React.FC<ProblemFormProps> = ({
         description: initialData.description || '',
         difficulty: initialData.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard',
         tags: initialData.tags || [],
+        site: initialData.site,
         examples: [
           {
             input: initialData.example_input || '',
@@ -147,6 +163,22 @@ const ProblemForm: React.FC<ProblemFormProps> = ({
         ? prev.tags.filter(t => t !== tag)
         : [...prev.tags, tag]
     }));
+  };
+
+  const getSiteIcon = (site: ProblemSite) => {
+    const siteIcons: Record<ProblemSite, string> = {
+      'LeetCode': '🟠',
+      'Codeforces': '🔵',
+      'HackerRank': '🟢',
+      'AtCoder': '🔴',
+      'CodeChef': '🟤',
+      'TopCoder': '🟡',
+      'SPOJ': '⚪',
+      'GeeksforGeeks': '🟢',
+      'InterviewBit': '🔷',
+      'Custom': '⭐'
+    };
+    return siteIcons[site] || '🌐';
   };
 
   return (
@@ -257,6 +289,25 @@ const ProblemForm: React.FC<ProblemFormProps> = ({
               <div className="absolute top-3 right-3">
                 <FileText className="h-5 w-5 text-gray-400" />
               </div>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Problem Site</label>
+            <div className="relative">
+              <select
+                value={formData.site || ''}
+                onChange={e => setFormData(prev => ({ ...prev, site: e.target.value as ProblemSite || undefined }))}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none"
+              >
+                <option value="">Select a platform (optional)</option>
+                {PROBLEM_SITES.map(site => (
+                  <option key={site} value={site}>
+                    {getSiteIcon(site)} {site}
+                  </option>
+                ))}
+              </select>
+              <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             </div>
           </div>
 

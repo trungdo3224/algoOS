@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2, Globe } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProblemForm from '../components/problem-creator/ProblemForm';
+import ProblemFilters from '../components/problems/ProblemFilters';
 import Button from '../components/ui/Button';
 import { useAppDispatch, useAppSelector } from '../hooks/reduxHooks';
 import { fetchProblems, createProblem, updateProblem, deleteProblem } from '../features/problems/problemSlice';
-import type { Problem, ProblemStatus } from '../lib/supabase';
+import type { Problem, ProblemStatus, ProblemSite } from '../lib/supabase';
 
 interface ProblemData {
   title: string;
   description: string;
   difficulty: 'easy' | 'medium' | 'hard';
   tags: string[];
+  site?: ProblemSite;
   examples: {
     input: string;
     output: string;
@@ -20,6 +22,12 @@ interface ProblemData {
   constraints: string;
   hint?: string;
   status: ProblemStatus;
+}
+
+interface FilterState {
+  site: ProblemSite | 'all';
+  difficulty: 'all' | 'Easy' | 'Medium' | 'Hard';
+  tags: string[];
 }
 
 const ProblemCreator: React.FC = () => {
@@ -33,6 +41,11 @@ const ProblemCreator: React.FC = () => {
   const [apiError, setApiError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
+  const [filters, setFilters] = useState<FilterState>({
+    site: 'all',
+    difficulty: 'all',
+    tags: []
+  });
 
   useEffect(() => {
     dispatch(fetchProblems());
@@ -51,6 +64,7 @@ const ProblemCreator: React.FC = () => {
         description: data.description,
         difficulty: data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1),
         tags: data.tags,
+        site: data.site,
         example_input: data.examples[0]?.input || '',
         example_output: data.examples[0]?.output || '',
         constraints: data.constraints,
@@ -114,10 +128,28 @@ const ProblemCreator: React.FC = () => {
     }
   };
 
-  const filteredProblems = problems.filter(problem =>
-    problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    problem.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  // Get unique values for filters
+  const availableSites = Array.from(new Set(problems.filter(p => p.site).map(p => p.site!)));
+  const availableTags = Array.from(new Set(problems.flatMap(p => p.tags)));
+
+  // Apply filters
+  const filteredProblems = problems.filter(problem => {
+    // Search filter
+    const matchesSearch = problem.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         problem.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    // Site filter
+    const matchesSite = filters.site === 'all' || problem.site === filters.site;
+    
+    // Difficulty filter
+    const matchesDifficulty = filters.difficulty === 'all' || problem.difficulty === filters.difficulty;
+    
+    // Tags filter
+    const matchesTags = filters.tags.length === 0 || 
+                       filters.tags.some(tag => problem.tags.includes(tag));
+
+    return matchesSearch && matchesSite && matchesDifficulty && matchesTags;
+  });
 
   const getStatusColor = (status?: ProblemStatus) => {
     switch (status) {
@@ -136,13 +168,31 @@ const ProblemCreator: React.FC = () => {
     }
   };
 
+  const getSiteIcon = (site?: ProblemSite) => {
+    if (!site) return null;
+    
+    const siteIcons: Record<ProblemSite, string> = {
+      'LeetCode': '🟠',
+      'Codeforces': '🔵',
+      'HackerRank': '🟢',
+      'AtCoder': '🔴',
+      'CodeChef': '🟤',
+      'TopCoder': '🟡',
+      'SPOJ': '⚪',
+      'GeeksforGeeks': '🟢',
+      'InterviewBit': '🔷',
+      'Custom': '⭐'
+    };
+    return siteIcons[site] || '🌐';
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 mb-1">Problems</h1>
           <p className="text-gray-600">
-            Browse and manage algorithm problems.
+            Browse and manage algorithm problems from various platforms.
           </p>
         </div>
         <Button
@@ -158,94 +208,137 @@ const ProblemCreator: React.FC = () => {
         </Button>
       </div>
 
-      <div className="flex space-x-4 mb-6">
-        <div className="flex-1 relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search problems by title or tag..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Filters Sidebar */}
+        <div className="lg:col-span-1">
+          <ProblemFilters
+            filters={filters}
+            onFiltersChange={setFilters}
+            availableTags={availableTags}
+            availableSites={availableSites}
           />
         </div>
-      </div>
 
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+        {/* Problems List */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Search Bar */}
+          <div className="flex space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search problems by title or tag..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+
+          {/* Results Summary */}
+          <div className="flex items-center justify-between text-sm text-gray-600">
+            <span>
+              Showing {filteredProblems.length} of {problems.length} problems
+            </span>
+            {(filters.site !== 'all' || filters.difficulty !== 'all' || filters.tags.length > 0) && (
+              <span className="text-blue-600">Filters applied</span>
+            )}
+          </div>
+
+          {/* Problems Grid */}
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            </div>
+          ) : error ? (
+            <div className="text-red-600 text-center py-8">{error}</div>
+          ) : filteredProblems.length === 0 ? (
+            <div className="text-gray-500 text-center py-8">
+              {searchQuery || filters.site !== 'all' || filters.difficulty !== 'all' || filters.tags.length > 0
+                ? 'No problems match your search criteria'
+                : 'No problems available'
+              }
+            </div>
+          ) : (
+            <div className="grid gap-4">
+              {filteredProblems.map((problem) => (
+                <Card
+                  key={problem.problem_id}
+                  hoverable
+                  className="cursor-pointer transition-transform hover:scale-[1.01]"
+                >
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <BookOpen className="h-5 w-5 text-blue-600" />
+                        <h3 className="text-lg font-medium text-gray-900">{problem.title}</h3>
+                        {problem.site && (
+                          <div className="flex items-center space-x-1">
+                            <Globe className="h-4 w-4 text-gray-400" />
+                            <span className="text-sm text-gray-500">
+                              {getSiteIcon(problem.site)} {problem.site}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{problem.description}</p>
+                      <div className="flex items-center space-x-4">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
+                          ${problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
+                            problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'}`}>
+                          {problem.difficulty}
+                        </span>
+                        {problem.status && (
+                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(problem.status)}`}>
+                            {problem.status}
+                          </span>
+                        )}
+                        <span className="flex items-center text-sm text-gray-500">
+                          <Clock className="h-4 w-4 mr-1" />
+                          20-30 min
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-start space-x-4">
+                      <div className="flex flex-wrap gap-2">
+                        {problem.tags.slice(0, 3).map((tag, index) => (
+                          <span
+                            key={index}
+                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700"
+                          >
+                            <Tag className="h-3 w-3 mr-1" />
+                            {tag}
+                          </span>
+                        ))}
+                        {problem.tags.length > 3 && (
+                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700">
+                            +{problem.tags.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEdit(problem)}
+                          className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(problem.problem_id)}
+                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
-      ) : error ? (
-        <div className="text-red-600 text-center py-8">{error}</div>
-      ) : filteredProblems.length === 0 ? (
-        <div className="text-gray-500 text-center py-8">
-          {searchQuery ? 'No problems match your search' : 'No problems available'}
-        </div>
-      ) : (
-        <div className="grid gap-4">
-          {filteredProblems.map((problem) => (
-            <Card
-              key={problem.problem_id}
-              hoverable
-              className="cursor-pointer transition-transform hover:scale-[1.02]"
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <BookOpen className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-lg font-medium text-gray-900">{problem.title}</h3>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-3 line-clamp-2">{problem.description}</p>
-                  <div className="flex items-center space-x-4">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                      ${problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
-                        problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'}`}>
-                      {problem.difficulty}
-                    </span>
-                    {problem.status && (
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(problem.status)}`}>
-                        {problem.status}
-                      </span>
-                    )}
-                    <span className="flex items-center text-sm text-gray-500">
-                      <Clock className="h-4 w-4 mr-1" />
-                      20-30 min
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-start space-x-4">
-                  <div className="flex flex-wrap gap-2">
-                    {problem.tags.map((tag, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700"
-                      >
-                        <Tag className="h-3 w-3 mr-1" />
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEdit(problem)}
-                      className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(problem.problem_id)}
-                      className="p-1 text-gray-400 hover:text-red-500 transition-colors"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          ))}
-        </div>
-      )}
+      </div>
 
       {/* Create/Edit Problem Modal */}
       {isModalOpen && (

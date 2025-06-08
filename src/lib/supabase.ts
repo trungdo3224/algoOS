@@ -16,6 +16,18 @@ export type ProblemStatus =
   | 'Cần ôn tập sớm'
   | 'Đã ôn tập';
 
+export type ProblemSite = 
+  | 'LeetCode'
+  | 'Codeforces'
+  | 'HackerRank'
+  | 'AtCoder'
+  | 'CodeChef'
+  | 'TopCoder'
+  | 'SPOJ'
+  | 'GeeksforGeeks'
+  | 'InterviewBit'
+  | 'Custom';
+
 // Type definitions for our database tables
 export type User = {
   user_id: string;
@@ -30,6 +42,7 @@ export type Problem = {
   description: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
   tags: string[];
+  site?: ProblemSite;
   example_input: string;
   example_output: string;
   constraints: string;
