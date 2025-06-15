@@ -36,9 +36,40 @@ const SsaCoaching: React.FC = () => {
   const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
   const [stageResponses, setStageResponses] = useState<{[key: number]: {userAnswer: string, assistantFeedback: string}}>({});
 
+  // Load persisted problem from localStorage on component mount
   useEffect(() => {
+    const persistedProblemId = localStorage.getItem('ssa-selected-problem-id');
+    if (persistedProblemId) {
+      console.log('Loading persisted problem ID:', persistedProblemId);
+      // We'll load the actual problem data after fetching problems
+    }
     fetchProblems();
   }, []);
+
+  // Load persisted problem after problems are fetched
+  useEffect(() => {
+    if (problems.length > 0) {
+      const persistedProblemId = localStorage.getItem('ssa-selected-problem-id');
+      if (persistedProblemId) {
+        const persistedProblem = problems.find(p => p.problem_id === persistedProblemId);
+        if (persistedProblem) {
+          console.log('Restoring persisted problem:', persistedProblem.title);
+          setSelectedProblem(persistedProblem);
+          return;
+        } else {
+          // Problem no longer exists, clear from localStorage
+          localStorage.removeItem('ssa-selected-problem-id');
+        }
+      }
+      
+      // If no persisted problem or it doesn't exist, auto-select first problem
+      if (problems.length > 0 && !selectedProblem) {
+        console.log('Auto-selecting first problem:', problems[0].title);
+        setSelectedProblem(problems[0]);
+        localStorage.setItem('ssa-selected-problem-id', problems[0].problem_id);
+      }
+    }
+  }, [problems]);
 
   useEffect(() => {
     if (selectedProblem && userId) {
@@ -375,6 +406,9 @@ const SsaCoaching: React.FC = () => {
   const handleSelectProblem = async (problem: Problem) => {
     console.log('Problem selected:', problem.title);
     
+    // Persist the selected problem to localStorage
+    localStorage.setItem('ssa-selected-problem-id', problem.problem_id);
+    
     // Close the modal first
     setIsProblemSelectorOpen(false);
     
@@ -398,6 +432,22 @@ const SsaCoaching: React.FC = () => {
   const handleChooseProblem = () => {
     console.log('Choose Problem button clicked');
     setIsProblemSelectorOpen(true);
+  };
+
+  const handleDiscardProblem = () => {
+    console.log('Discarding current problem');
+    
+    // Clear persisted problem from localStorage
+    localStorage.removeItem('ssa-selected-problem-id');
+    
+    // Clear all current state
+    setSelectedProblem(null);
+    setCurrentStage(1);
+    setValidatedStages([]);
+    setMessages([]);
+    setStageResponses({});
+    setShowSummary(false);
+    setCurrentSession(null);
   };
 
   const getSummaryData = () => {
@@ -442,12 +492,23 @@ const SsaCoaching: React.FC = () => {
             Solve problems with guidance from our Socratic Solve Assistant.
           </p>
         </div>
-        <Button
-          onClick={handleChooseProblem}
-          leftIcon={<Plus className="h-4 w-4" />}
-        >
-          Choose Problem
-        </Button>
+        <div className="flex items-center space-x-3">
+          {selectedProblem && (
+            <Button
+              onClick={handleDiscardProblem}
+              variant="outline"
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Discard Problem
+            </Button>
+          )}
+          <Button
+            onClick={handleChooseProblem}
+            leftIcon={<Plus className="h-4 w-4" />}
+          >
+            {selectedProblem ? 'Change Problem' : 'Choose Problem'}
+          </Button>
+        </div>
       </div>
 
       {!selectedProblem ? (
@@ -467,45 +528,72 @@ const SsaCoaching: React.FC = () => {
           </Button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-1">
-            <ProblemStatement
-              title={selectedProblem.title}
-              description={selectedProblem.description || ''}
-              difficulty={selectedProblem.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard'}
-              timeEstimate="20-30 min"
-              tags={selectedProblem.tags}
-              exampleInput={selectedProblem.example_input || undefined}
-              exampleOutput={selectedProblem.example_output || undefined}
-              constraints={selectedProblem.constraints || undefined}
-            />
-          </div>
-
-          <div className="lg:col-span-2 space-y-4">
-            <StageNavigation
-              currentStage={currentStage}
-              validatedStages={validatedStages}
-              onStageChange={handleStageChange}
-            />
-
-            <SessionControls
-              currentStage={currentStage}
-              validatedStages={validatedStages}
-              onStageChange={handleStageChange}
-              onResetSession={resetSession}
-              isLoading={isTyping || isValidating}
-            />
-
-            <div className="h-[500px]">
-              <CoachingInterface
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                currentStage={currentStage}
-                isLoading={isTyping || isValidating}
-              />
+        <>
+          {/* Problem Info Bar */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                  <span className="text-blue-600 font-semibold text-sm">
+                    {selectedProblem.difficulty.charAt(0)}
+                  </span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-medium text-blue-900">
+                    {selectedProblem.title}
+                  </h3>
+                  <p className="text-sm text-blue-600">
+                    {selectedProblem.difficulty} • {selectedProblem.tags.slice(0, 3).join(', ')}
+                    {selectedProblem.tags.length > 3 && ` +${selectedProblem.tags.length - 3} more`}
+                  </p>
+                </div>
+              </div>
+              <div className="text-sm text-blue-600">
+                Session in progress
+              </div>
             </div>
           </div>
-        </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1">
+              <ProblemStatement
+                title={selectedProblem.title}
+                description={selectedProblem.description || ''}
+                difficulty={selectedProblem.difficulty.toLowerCase() as 'easy' | 'medium' | 'hard'}
+                timeEstimate="20-30 min"
+                tags={selectedProblem.tags}
+                exampleInput={selectedProblem.example_input || undefined}
+                exampleOutput={selectedProblem.example_output || undefined}
+                constraints={selectedProblem.constraints || undefined}
+              />
+            </div>
+
+            <div className="lg:col-span-2 space-y-4">
+              <StageNavigation
+                currentStage={currentStage}
+                validatedStages={validatedStages}
+                onStageChange={handleStageChange}
+              />
+
+              <SessionControls
+                currentStage={currentStage}
+                validatedStages={validatedStages}
+                onStageChange={handleStageChange}
+                onResetSession={resetSession}
+                isLoading={isTyping || isValidating}
+              />
+
+              <div className="h-[500px]">
+                <CoachingInterface
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  currentStage={currentStage}
+                  isLoading={isTyping || isValidating}
+                />
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       <ProblemSelector
