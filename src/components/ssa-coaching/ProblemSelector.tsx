@@ -67,6 +67,11 @@ const ProblemSelector: React.FC<ProblemSelectorProps> = ({
     problem.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
+  const handleProblemClick = (problem: Problem) => {
+    console.log('Problem clicked in selector:', problem.title);
+    onSelectProblem(problem);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -120,17 +125,18 @@ const ProblemSelector: React.FC<ProblemSelectorProps> = ({
           ) : (
             <div className="grid gap-4">
               {filteredProblems.map((problem) => (
-                <Card
+                <div
                   key={problem.problem_id}
-                  hoverable
-                  className="cursor-pointer transition-transform hover:scale-[1.02]"
-                  onClick={() => onSelectProblem(problem)}
+                  onClick={() => handleProblemClick(problem)}
+                  className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md hover:border-blue-300 transition-all duration-200 cursor-pointer group"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                        <h3 className="text-lg font-medium text-gray-900">{problem.title}</h3>
+                        <BookOpen className="h-5 w-5 text-blue-600 group-hover:text-blue-700" />
+                        <h3 className="text-lg font-medium text-gray-900 group-hover:text-blue-900">
+                          {problem.title}
+                        </h3>
                       </div>
                       <p className="text-sm text-gray-600 mb-3 line-clamp-2">{problem.description}</p>
                       <div className="flex items-center space-x-4">
@@ -152,18 +158,23 @@ const ProblemSelector: React.FC<ProblemSelectorProps> = ({
                       </div>
                     </div>
                     <div className="flex flex-wrap gap-2 ml-4">
-                      {problem.tags.map((tag, index) => (
+                      {problem.tags.slice(0, 3).map((tag, index) => (
                         <span
                           key={index}
-                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700"
+                          className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 group-hover:bg-blue-100"
                         >
                           <Tag className="h-3 w-3 mr-1" />
                           {tag}
                         </span>
                       ))}
+                      {problem.tags.length > 3 && (
+                        <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700">
+                          +{problem.tags.length - 3} more
+                        </span>
+                      )}
                     </div>
                   </div>
-                </Card>
+                </div>
               ))}
             </div>
           )}
