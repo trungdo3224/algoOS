@@ -96,7 +96,7 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
 
   return (
     <div className='flex flex-col h-full'>
-      <Card className='bg-gradient-to-r from-blue-500 to-blue-600 text-white mb-4'>
+      <Card className='bg-gradient-to-r from-blue-500 to-blue-600 text-white mb-4 flex-shrink-0'>
         <div className='flex items-center space-x-3'>
           <div className='h-10 w-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center'>
             <Brain className='h-6 w-6' />
@@ -111,7 +111,7 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
       </Card>
 
       {/* Progress Stages Bar */}
-      <div className='flex items-center space-x-2 mb-6 overflow-x-auto py-2 scrollbar-hide'>
+      <div className='flex items-center space-x-2 mb-6 overflow-x-auto py-2 scrollbar-hide flex-shrink-0'>
         {stages.map((stage) => {
           const isCompleted = currentStage > stage.number;
           const isActive = currentStage === stage.number;
@@ -159,7 +159,7 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
       </div>
 
       {stages[currentStage - 1] && (
-        <div className='mb-6'>
+        <div className='mb-6 flex-shrink-0'>
           <Card className='bg-gradient-to-r from-blue-50 to-blue-100 border-blue-200'>
             <div className='flex items-start space-x-3'>
               <div className='flex-shrink-0 mt-1'>
@@ -178,8 +178,8 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
         </div>
       )}
 
-      {/* Chat Messages Box */}
-      <div className='flex-1 overflow-y-auto px-4 py-2 space-y-4 bg-gray-50 rounded-lg mb-4'>
+      {/* Chat Messages Box - Flexible height */}
+      <div className='flex-1 overflow-y-auto px-4 py-2 space-y-4 bg-gray-50 rounded-lg mb-4 min-h-0'>
         {messages && messages.length > 0 ? (
           messages.map((message) => (
             <div
@@ -234,9 +234,11 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      <div className='flex-none'>
+      {/* Input Form - Fixed at bottom */}
+      <div className='flex-shrink-0'>
         <form onSubmit={handleSubmit} className='flex space-x-2 flex-row'>
-          <div className='flex-1 relative'>            <textarea
+          <div className='flex-1 relative'>
+            <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -273,13 +275,13 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
       </div>
 
       {/* Tips Panel */}
-      <div className='fixed right-4 bottom-4 max-w-xs'>
-        <Card className='bg-gradient-to-br from-purple-50 to-blue-50 border-blue-100'>
-          <div className='flex items-start space-x-3'>
-            <div className='flex-shrink-0'>
-              <Lightbulb className='h-5 w-5 text-blue-600' onClick={() => setShowTips(!showTips)}/>
-            </div>
-            {showTips && (
+      {showTips && (
+        <div className='fixed right-4 bottom-4 max-w-xs z-10'>
+          <Card className='bg-gradient-to-br from-purple-50 to-blue-50 border-blue-100'>
+            <div className='flex items-start space-x-3'>
+              <div className='flex-shrink-0'>
+                <Lightbulb className='h-5 w-5 text-blue-600' onClick={() => setShowTips(!showTips)}/>
+              </div>
               <div onClick={() => setShowTips(!showTips)}>
                 <h4 className='text-sm font-medium text-blue-800'>Quick Tip</h4>
                 <p className='text-xs text-blue-600 mt-1'>
@@ -287,10 +289,10 @@ const CoachingInterface: React.FC<CoachingInterfaceProps> = ({
                   constraints you're unsure about.
                 </p>
               </div>
-            )}
-          </div>
-        </Card>
-      </div>
+            </div>
+          </Card>
+        </div>
+      )}
     </div>
   );
 };

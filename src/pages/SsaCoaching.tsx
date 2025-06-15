@@ -554,8 +554,10 @@ const SsaCoaching: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1">
+          {/* Adaptive Layout Container */}
+          <div className="flex flex-col lg:flex-row gap-6 min-h-[600px]">
+            {/* Problem Statement Section - Fixed width on large screens */}
+            <div className="lg:w-1/3 flex-shrink-0">
               <ProblemStatement
                 title={selectedProblem.title}
                 description={selectedProblem.description || ''}
@@ -568,22 +570,26 @@ const SsaCoaching: React.FC = () => {
               />
             </div>
 
-            <div className="lg:col-span-2 space-y-4">
-              <StageNavigation
-                currentStage={currentStage}
-                validatedStages={validatedStages}
-                onStageChange={handleStageChange}
-              />
+            {/* Chat Section - Flexible height that adapts */}
+            <div className="lg:w-2/3 flex flex-col min-h-0">
+              <div className="space-y-4 flex-shrink-0">
+                <StageNavigation
+                  currentStage={currentStage}
+                  validatedStages={validatedStages}
+                  onStageChange={handleStageChange}
+                />
 
-              <SessionControls
-                currentStage={currentStage}
-                validatedStages={validatedStages}
-                onStageChange={handleStageChange}
-                onResetSession={resetSession}
-                isLoading={isTyping || isValidating}
-              />
+                <SessionControls
+                  currentStage={currentStage}
+                  validatedStages={validatedStages}
+                  onStageChange={handleStageChange}
+                  onResetSession={resetSession}
+                  isLoading={isTyping || isValidating}
+                />
+              </div>
 
-              <div className="h-[500px]">
+              {/* Chat Interface - Takes remaining height */}
+              <div className="flex-1 min-h-0 mt-4">
                 <CoachingInterface
                   messages={messages}
                   onSendMessage={handleSendMessage}
