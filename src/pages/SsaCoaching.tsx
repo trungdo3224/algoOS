@@ -11,7 +11,6 @@ import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import { validateStage } from '../services/gemini';
 import type { Problem, SsaSession } from '../lib/supabase';
-import type { SSASession } from '../types/ssa';
 
 interface Message {
   id: string;
@@ -57,8 +56,8 @@ const SsaCoaching: React.FC = () => {
       
       if (error) throw error;
       
-      setProblems(data);
-      console.log('Fetched problems:', data.length);
+      setProblems(data || []);
+      console.log('Fetched problems:', data?.length || 0);
     } catch (error) {
       console.error('Error fetching problems:', error);
     } finally {
@@ -392,7 +391,13 @@ const SsaCoaching: React.FC = () => {
   };
 
   const handleAddNewProblem = () => {
+    setIsProblemSelectorOpen(false);
     window.location.href = '/problem-creator';
+  };
+
+  const handleChooseProblem = () => {
+    console.log('Choose Problem button clicked');
+    setIsProblemSelectorOpen(true);
   };
 
   const getSummaryData = () => {
@@ -438,7 +443,7 @@ const SsaCoaching: React.FC = () => {
           </p>
         </div>
         <Button
-          onClick={() => setIsProblemSelectorOpen(true)}
+          onClick={handleChooseProblem}
           leftIcon={<Plus className="h-4 w-4" />}
         >
           Choose Problem
@@ -455,7 +460,7 @@ const SsaCoaching: React.FC = () => {
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Problem Selected</h3>
           <p className="text-gray-600 mb-4">Choose a problem to start your SSA coaching session.</p>
           <Button
-            onClick={() => setIsProblemSelectorOpen(true)}
+            onClick={handleChooseProblem}
             leftIcon={<Plus className="h-4 w-4" />}
           >
             Choose Problem
