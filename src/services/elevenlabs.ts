@@ -1,5 +1,5 @@
 // ElevenLabs API service for voice synthesis
-const ELEVENLABS_API_KEY = 'sk_c4a3149429d3289ebb5fe780357283af3ef31881089a1ae7';
+const ELEVENLABS_API_KEY = import.meta.env.VITE_ELEVENLABS_API_KEY;
 const ELEVENLABS_API_URL = 'https://api.elevenlabs.io/v1';
 
 export interface Voice {
@@ -20,6 +20,10 @@ export interface VoiceSettings {
 // Get available voices
 export async function getAvailableVoices(): Promise<Voice[]> {
   try {
+    if (!ELEVENLABS_API_KEY) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
     const response = await fetch(`${ELEVENLABS_API_URL}/voices`, {
       headers: {
         'xi-api-key': ELEVENLABS_API_KEY,
@@ -70,6 +74,10 @@ export async function generateSpeech(
   }
 ): Promise<string> {
   try {
+    if (!ELEVENLABS_API_KEY) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
     const response = await fetch(`${ELEVENLABS_API_URL}/text-to-speech/${voiceId}`, {
       method: 'POST',
       headers: {
@@ -107,6 +115,10 @@ export async function streamSpeech(
   }
 ): Promise<void> {
   try {
+    if (!ELEVENLABS_API_KEY) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
     const response = await fetch(`${ELEVENLABS_API_URL}/text-to-speech/${voiceId}/stream`, {
       method: 'POST',
       headers: {

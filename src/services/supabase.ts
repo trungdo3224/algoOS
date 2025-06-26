@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import type { Problem, Submission, SsaSession, RevisionHistory, Insight, VideoFeedback } from '../lib/supabase';
+import type { Problem, Submission, SsaSession, RevisionHistory, Insight } from '../lib/supabase';
 
 // Problems
 export async function getProblems() {
@@ -108,33 +108,6 @@ export async function getUserInsights(userId: string) {
     .select('*')
     .eq('user_id', userId)
     .order('updated_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
-}
-
-// Video Feedback
-export async function getVideoFeedback(userId: string) {
-  const { data, error } = await supabase
-    .from('video_feedback')
-    .select(`
-      *,
-      problems (*),
-      submissions (*)
-    `)
-    .eq('user_id', userId)
-    .order('generated_at', { ascending: false });
-  
-  if (error) throw error;
-  return data;
-}
-
-export async function createVideoFeedback(feedback: Partial<VideoFeedback>) {
-  const { data, error } = await supabase
-    .from('video_feedback')
-    .insert(feedback)
-    .select()
-    .single();
   
   if (error) throw error;
   return data;

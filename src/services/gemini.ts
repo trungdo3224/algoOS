@@ -27,7 +27,7 @@ interface VoiceAnalysisResponse {
   nextSteps: string[];
 }
 
-const GEMINI_API_KEY = 'AIzaSyCy0CUClSN-I0NVdnouSK7dBze0KI3e2Jo';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
 export async function validateStage(
@@ -108,6 +108,10 @@ If not valid (is_valid: false): Help them think about implementation details, op
   };
 
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
+    }
+
     const prompt = stagePrompts[stageId as keyof typeof stagePrompts] || stagePrompts[1];
     
     const requestBody: GeminiRequest = {
@@ -247,6 +251,10 @@ Respond with a JSON object containing:
 - Analyze reasoning patterns, not just correctness`;
 
   try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
+    }
+
     const requestBody: GeminiRequest = {
       contents: [{
         role: "user",

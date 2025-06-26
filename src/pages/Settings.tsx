@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Save, Bell, Lock, User as UserIcon } from 'lucide-react';
-import Card from '../components/ui/Car';
+import Card from '../components/ui/Card';
 import Button from '../components/ui/Button';
 import { useAppSelector } from '../hooks/reduxHooks';
 
@@ -90,7 +90,7 @@ const Settings: React.FC = () => {
             <div className="space-y-4">
               {[
                 { id: 'weekly-summary', label: 'Weekly progress summary' },
-                { id: 'new-feedback', label: 'New video feedback available' },
+                { id: 'new-feedback', label: 'New AI feedback available' },
                 { id: 'revision-reminder', label: 'Revision reminders' },
                 { id: 'achievement', label: 'Achievement unlocked' },
               ].map((item) => (
