@@ -4,7 +4,6 @@ import {
   MessageCircle, 
   BookOpen, 
   Video, 
-  BarChart2, 
   Settings,
   LogOut,
   FolderOpen,
@@ -124,12 +123,6 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
       label: 'Video Feedback', 
       icon: <Video size={20} />,
       onClick: () => handleNavigation('video-feedback')
-    },
-    { 
-      id: 'insights', 
-      label: 'Insights', 
-      icon: <BarChart2 size={20} />,
-      onClick: () => handleNavigation('insights')
     },
   ];
   const problemsSubItems = [

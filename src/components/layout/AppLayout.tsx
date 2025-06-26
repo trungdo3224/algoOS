@@ -6,7 +6,6 @@ import IdeaGrader from '../../pages/IdeaGrader';
 import SsaCoaching from '../../pages/SsaCoaching';
 import Revision from '../../pages/Revision';
 import VideoFeedback from '../../pages/VideoFeedback';
-import Insights from '../../pages/Insights';
 import Settings from '../../pages/Settings';
 import LoginPage from '../../pages/LoginPage';
 import ProblemCreator from '../../pages/ProblemCreator';
@@ -51,8 +50,6 @@ const AppLayout: React.FC = () => {
         return <Revision />;
       case 'video-feedback':
         return <VideoFeedback />;
-      case 'insights':
-        return <Insights />;
       case 'settings':
         return <Settings />;
       case 'problem-creator':

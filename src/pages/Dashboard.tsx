@@ -1,5 +1,5 @@
-import React from 'react';
-import { Brain, Clock, BookOpen, BarChart2, Trophy, Timer, Repeat, Target } from 'lucide-react';
+import React, { useState } from 'react';
+import { Brain, Clock, BookOpen, BarChart2, Trophy, Timer, Repeat, Target, TrendingUp } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import ProgressChart from '../components/dashboard/ProgressChart';
 import DifficultyDistribution from '../components/dashboard/DifficultyDistribution';
@@ -8,6 +8,11 @@ import ActivityCalendar from '../components/dashboard/ActivityCalendar';
 import StudySessionCard from '../components/dashboard/StudySessionCard';
 import StatusBarChart from '../components/dashboard/StatusBarChart';
 import StatusPieChart from '../components/dashboard/StatusPieChart';
+import ScoreTrend from '../components/insights/ScoreTrend';
+import PatternAnalysis from '../components/insights/PatternAnalysis';
+import WeaknessSummary from '../components/insights/WeaknessSummary';
+import StudyHeatmap from '../components/insights/StudyHeatmap';
+import Card from '../components/ui/Card';
 import { useUserSubmissions, useUserInsights } from '../hooks/useSupabase';
 import { useAppSelector } from '../hooks/reduxHooks';
 
@@ -15,6 +20,7 @@ const Dashboard: React.FC = () => {
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
   const { insights, loading: insightsLoading } = useUserInsights();
   const { problems, stats } = useAppSelector(state => state.problems);
+  const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'year'>('month');
   
   // Calculate status stats from problems
   const statusStats = problems.reduce((acc: { status: string; count: number }[], problem) => {
@@ -77,6 +83,44 @@ const Dashboard: React.FC = () => {
     previousScore: insight.avg_score - (Math.random() * 2) // For demonstration
   })) || [];
 
+  // Calculate score trend data
+  const scoreTrendData = submissions?.map(submission => ({
+    date: new Date(submission.submitted_at).toISOString(),
+    score: submission.grader_score || 0,
+    problemCount: 1
+  })) || [];
+
+  // Calculate pattern analysis data
+  const patternData = insights?.map(insight => ({
+    name: insight.tag,
+    score: insight.avg_score,
+    problemCount: submissions?.filter(s => s.problems.tags.includes(insight.tag)).length || 0,
+    trend: Math.random() * 20 - 10 // Mock trend data
+  })) || [];
+
+  // Calculate weakness data
+  const weaknessData = {
+    patterns: insights?.filter(i => i.avg_score < 6).map(i => i.tag) || [],
+    concepts: ['Time Complexity Analysis', 'Space Optimization'],
+    recommendations: [
+      'Practice more problems in your weak areas',
+      'Review fundamental concepts',
+      'Focus on pattern recognition'
+    ]
+  };
+
+  // Calculate study data
+  const studyData = submissions?.map(submission => ({
+    date: new Date(submission.submitted_at).toISOString(),
+    minutes: 30, // Assuming average 30 minutes per problem
+    problems: 1
+  })) || [];
+
+  // Calculate insights statistics
+  const averageScore = insights?.reduce((sum, i) => sum + i.avg_score, 0) / (insights?.length || 1);
+  const patternMastery = (insights?.filter(i => i.avg_score >= 7).length || 0) / (insights?.length || 1) * 100;
+  const goalsMet = Math.floor((averageScore / 10) * 10);
+
   if (submissionsLoading || insightsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -113,14 +157,18 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">Learning Dashboard</h1>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">Learning Dashboard</h1>
+        <p className="text-gray-600 mb-8">
+          Comprehensive overview of your learning progress, insights, and performance analytics.
+        </p>
         
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+        {/* Main Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
           <StatCard
             title="Overall Score"
-            value={`${(stats.averageTimePerProblem / 60).toFixed(1)} hr/problem`}
+            value={`${averageScore.toFixed(1)}/10`}
             icon={Brain}
             trend={{ value: 12, isPositive: true }}
             className="from-blue-500 to-blue-600"
@@ -135,9 +183,9 @@ const Dashboard: React.FC = () => {
           />
           
           <StatCard
-            title="Total Time"
-            value={`${Math.floor(stats.totalTimeTaken / 60)} hr ${stats.totalTimeTaken % 60} min`}
-            icon={Clock}
+            title="Pattern Mastery"
+            value={`${patternMastery.toFixed(0)}%`}
+            icon={TrendingUp}
             trend={{ value: 15, isPositive: true }}
             className="from-green-500 to-green-600"
           />
@@ -151,7 +199,8 @@ const Dashboard: React.FC = () => {
           />
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-6">
+        {/* Secondary Stats Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
           <StatCard
             title="Average Time"
             value={`${Math.floor(stats.averageTimePerProblem)} min`}
@@ -177,44 +226,102 @@ const Dashboard: React.FC = () => {
           />
           
           <StatCard
-            title="Total Attempts"
-            value={stats.totalAttempts}
-            icon={Repeat}
+            title="Total Time"
+            value={`${Math.floor(stats.totalTimeTaken / 60)} hr`}
+            icon={Clock}
             className="from-teal-500 to-teal-600"
             breakdown={{
-              easy: Math.floor(stats.totalAttempts * 0.3).toString(),
-              medium: Math.floor(stats.totalAttempts * 0.4).toString(),
-              hard: Math.floor(stats.totalAttempts * 0.3).toString()
+              easy: `${Math.floor(stats.totalTimeTaken * 0.3 / 60)} hr`,
+              medium: `${Math.floor(stats.totalTimeTaken * 0.4 / 60)} hr`,
+              hard: `${Math.floor(stats.totalTimeTaken * 0.3 / 60)} hr`
             }}
           />
         </div>
       </div>
       
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <ProgressChart data={progressData} />
-        <DifficultyDistribution stats={difficultyStats} />
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <StatusBarChart data={statusStats} />
-        <StatusPieChart data={statusStats} />
-      </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-        <ActivityCalendar activities={activities} />
-        <TagDistribution tags={tagStats} />
-      </div>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        {submissions?.slice(0, 3).map((submission, index) => (
-          <StudySessionCard
-            key={index}
-            date={new Date(submission.submitted_at)}
-            duration={stats.averageTimePerProblem}
-            problemsSolved={1}
-            averageScore={submission.grader_score || 0}
+      {/* Performance Analytics Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Performance Analytics</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <ScoreTrend
+            data={scoreTrendData}
+            period={timePeriod}
+            onPeriodChange={setTimePeriod}
           />
-        ))}
+          <PatternAnalysis data={patternData} />
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <WeaknessSummary data={weaknessData} />
+          <StudyHeatmap data={studyData} />
+        </div>
+      </div>
+
+      {/* Problem Statistics Section */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Problem Statistics</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <ProgressChart data={progressData} />
+          <DifficultyDistribution stats={difficultyStats} />
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <StatusBarChart data={statusStats} />
+          <StatusPieChart data={statusStats} />
+        </div>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <ActivityCalendar activities={activities} />
+          <TagDistribution tags={tagStats} />
+        </div>
+      </div>
+
+      {/* Personalized Recommendations */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Personalized Recommendations</h2>
+        <Card>
+          <div className="space-y-6">
+            <div className="p-6 bg-blue-50 rounded-lg">
+              <h3 className="text-lg font-medium text-blue-800 mb-3">Focus Areas</h3>
+              <p className="text-blue-700">
+                Based on your recent performance, we recommend focusing on {weaknessData.patterns.join(', ')}.
+                Your scores in these areas show potential for significant improvement.
+              </p>
+            </div>
+
+            <div className="p-6 bg-green-50 rounded-lg">
+              <h3 className="text-lg font-medium text-green-800 mb-3">Study Patterns</h3>
+              <p className="text-green-700">
+                Your learning is most effective during morning sessions. Consider scheduling more
+                practice during these peak performance hours.
+              </p>
+            </div>
+
+            <div className="p-6 bg-purple-50 rounded-lg">
+              <h3 className="text-lg font-medium text-purple-800 mb-3">Next Steps</h3>
+              <p className="text-purple-700">
+                Try tackling more medium-difficulty problems in your weaker areas. This will help
+                build confidence and improve problem-solving patterns.
+              </p>
+            </div>
+          </div>
+        </Card>
+      </div>
+      
+      {/* Recent Study Sessions */}
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Study Sessions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          {submissions?.slice(0, 3).map((submission, index) => (
+            <StudySessionCard
+              key={index}
+              date={new Date(submission.submitted_at)}
+              duration={stats.averageTimePerProblem}
+              problemsSolved={1}
+              averageScore={submission.grader_score || 0}
+            />
+          ))}
+        </div>
       </div>
     </div>
   );
