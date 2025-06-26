@@ -3,7 +3,6 @@ import {
   Home, 
   MessageCircle, 
   BookOpen, 
-  Video, 
   Settings,
   LogOut,
   FolderOpen,
@@ -125,12 +124,6 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
       label: 'Revision', 
       icon: <BookOpen size={20} />,
       onClick: () => handleNavigation('revision')
-    },
-    { 
-      id: 'video-feedback', 
-      label: 'Video Feedback', 
-      icon: <Video size={20} />,
-      onClick: () => handleNavigation('video-feedback')
     },
   ];
   const problemsSubItems = [

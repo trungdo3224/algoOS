@@ -130,39 +130,3 @@ export function useRevisionHistory() {
 
   return { revisions, loading, error };
 }
-
-export function useVideoFeedback() {
-  const { id: userId } = useAppSelector((state) => state.user);
-  const [feedback, setFeedback] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    if (!userId) return;
-
-    async function fetchFeedback() {
-      try {
-        const { data, error } = await supabase
-          .from('video_feedback')
-          .select(`
-            *,
-            problems (*),
-            submissions (*)
-          `)
-          .eq('user_id', userId)
-          .order('generated_at', { ascending: false });
-        
-        if (error) throw error;
-        setFeedback(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchFeedback();
-  }, [userId]);
-
-  return { feedback, loading, error };
-}
