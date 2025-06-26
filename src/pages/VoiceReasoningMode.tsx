@@ -214,13 +214,28 @@ const VoiceReasoningMode: React.FC = () => {
     setSessionMode('analysis');
     setIsAnalyzing(true);
     
-    // Simulate analysis delay
-    await new Promise(resolve => setTimeout(resolve, 3000));
-    
-    const sessionAnalysis = analyzeReasoningPatterns(chunks);
-    setAnalysis(sessionAnalysis);
-    setIsAnalyzing(false);
-    setSessionMode('feedback');
+    try {
+      // Use Gemini-powered analysis
+      const sessionAnalysis = await analyzeReasoningPatterns(
+        chunks,
+        selectedProblem?.title || 'Algorithm Problem',
+        selectedProblem?.description || 'Problem solving session'
+      );
+      setAnalysis(sessionAnalysis);
+    } catch (error) {
+      console.error('Error analyzing session:', error);
+      // Fallback analysis
+      setAnalysis({
+        strengths: ['Completed the reasoning session'],
+        potentialIssues: ['Analysis temporarily unavailable'],
+        suggestions: ['Try the session again for detailed feedback'],
+        overallScore: 5,
+        detailedFeedback: 'Session completed successfully. Detailed analysis is temporarily unavailable.'
+      });
+    } finally {
+      setIsAnalyzing(false);
+      setSessionMode('feedback');
+    }
   };
 
   const addFlag = () => {
@@ -289,15 +304,19 @@ const VoiceReasoningMode: React.FC = () => {
   const generateFeedbackText = (analysis: any): string => {
     let feedback = `Excellent work on your voice reasoning session for "${selectedProblem?.title}"! `;
     
-    if (analysis.strengths.length > 0) {
+    if (analysis.overallScore) {
+      feedback += `Your reasoning scored ${analysis.overallScore} out of 10. `;
+    }
+    
+    if (analysis.strengths && analysis.strengths.length > 0) {
       feedback += `I identified several strengths in your approach: ${analysis.strengths.join(', ')}. `;
     }
     
-    if (analysis.potentialIssues.length > 0) {
+    if (analysis.potentialIssues && analysis.potentialIssues.length > 0) {
       feedback += `There are some areas where we can help you improve: ${analysis.potentialIssues.join(', ')}. `;
     }
     
-    if (analysis.suggestions.length > 0) {
+    if (analysis.suggestions && analysis.suggestions.length > 0) {
       feedback += `Based on your reasoning patterns, I recommend: ${analysis.suggestions.join('. ')}. `;
     }
     
@@ -735,7 +754,7 @@ const VoiceReasoningMode: React.FC = () => {
             </div>
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Analyzing Your Reasoning...</h1>
             <p className="text-xl text-gray-600 mb-8">
-              Our AI is processing your thought patterns and identifying insights
+              Gemini AI is processing your thought patterns and identifying insights
             </p>
             
             <div className="max-w-md mx-auto">
@@ -768,7 +787,7 @@ const VoiceReasoningMode: React.FC = () => {
             </div>
             <h1 className="text-4xl font-bold text-gray-900 mb-4">Session Complete!</h1>
             <p className="text-xl text-gray-600">
-              Here's your personalized analysis and feedback
+              Here's your personalized analysis and feedback powered by Gemini AI
             </p>
           </div>
 
@@ -788,13 +807,13 @@ const VoiceReasoningMode: React.FC = () => {
             
             <Card className="text-center bg-gradient-to-br from-purple-500 to-purple-600 text-white">
               <Target className="h-8 w-8 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{analysis.strengths.length}</div>
-              <div className="text-sm text-purple-100">Strengths Found</div>
+              <div className="text-2xl font-bold">{analysis.overallScore || 'N/A'}/10</div>
+              <div className="text-sm text-purple-100">AI Score</div>
             </Card>
             
             <Card className="text-center bg-gradient-to-br from-orange-500 to-orange-600 text-white">
               <TrendingUp className="h-8 w-8 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{analysis.suggestions.length}</div>
+              <div className="text-2xl font-bold">{(analysis.suggestions || []).length}</div>
               <div className="text-sm text-orange-100">Improvements</div>
             </Card>
           </div>
@@ -809,7 +828,7 @@ const VoiceReasoningMode: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">Personalized Audio Analysis</h3>
-                  <p className="text-gray-600">Listen to AI insights about your reasoning patterns</p>
+                  <p className="text-gray-600">Listen to Gemini AI insights about your reasoning patterns</p>
                 </div>
               </div>
               <div className="flex items-center space-x-3">
@@ -843,7 +862,7 @@ const VoiceReasoningMode: React.FC = () => {
                 <h3 className="text-xl font-bold text-green-900">Strengths</h3>
               </div>
               <ul className="space-y-3">
-                {analysis.strengths.map((strength: string, index: number) => (
+                {(analysis.strengths || []).map((strength: string, index: number) => (
                   <li key={index} className="flex items-start">
                     <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
                     <span className="text-green-800">{strength}</span>
@@ -858,7 +877,7 @@ const VoiceReasoningMode: React.FC = () => {
                 <h3 className="text-xl font-bold text-yellow-900">Areas to Improve</h3>
               </div>
               <ul className="space-y-3">
-                {analysis.potentialIssues.map((issue: string, index: number) => (
+                {(analysis.potentialIssues || []).map((issue: string, index: number) => (
                   <li key={index} className="flex items-start">
                     <span className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
                     <span className="text-yellow-800">{issue}</span>
@@ -870,10 +889,10 @@ const VoiceReasoningMode: React.FC = () => {
             <Card className="bg-blue-50 border-blue-200">
               <div className="flex items-center mb-4">
                 <Lightbulb className="h-6 w-6 text-blue-600 mr-3" />
-                <h3 className="text-xl font-bold text-blue-900">Suggestions</h3>
+                <h3 className="text-xl font-bold text-blue-900">AI Suggestions</h3>
               </div>
               <ul className="space-y-3">
-                {analysis.suggestions.map((suggestion: string, index: number) => (
+                {(analysis.suggestions || []).map((suggestion: string, index: number) => (
                   <li key={index} className="flex items-start">
                     <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
                     <span className="text-blue-800">{suggestion}</span>
@@ -882,6 +901,16 @@ const VoiceReasoningMode: React.FC = () => {
               </ul>
             </Card>
           </div>
+
+          {/* Detailed Feedback */}
+          {analysis.detailedFeedback && (
+            <Card className="mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 mb-4">Detailed AI Analysis</h2>
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 border border-indigo-200">
+                <p className="text-gray-800 leading-relaxed">{analysis.detailedFeedback}</p>
+              </div>
+            </Card>
+          )}
 
           {/* Reasoning Timeline */}
           <Card className="mb-8">

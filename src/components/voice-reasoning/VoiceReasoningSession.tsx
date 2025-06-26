@@ -23,12 +23,14 @@ import { generateSpeech, getAvailableVoices, Voice } from '../../services/eleven
 
 interface VoiceReasoningSessionProps {
   problemTitle: string;
+  problemDescription?: string;
   onComplete: (analysis: any, chunks: SpeechChunk[]) => void;
   onStartSSA: (analysis: any) => void;
 }
 
 const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   problemTitle,
+  problemDescription = '',
   onComplete,
   onStartSSA
 }) => {
@@ -164,12 +166,27 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const analyzeSession = async () => {
     setIsAnalyzing(true);
     
-    // Simulate analysis delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const sessionAnalysis = analyzeReasoningPatterns(chunks);
-    setAnalysis(sessionAnalysis);
-    setIsAnalyzing(false);
+    try {
+      // Use Gemini-powered analysis
+      const sessionAnalysis = await analyzeReasoningPatterns(
+        chunks, 
+        problemTitle, 
+        problemDescription
+      );
+      setAnalysis(sessionAnalysis);
+    } catch (error) {
+      console.error('Error analyzing session:', error);
+      // Fallback analysis
+      setAnalysis({
+        strengths: ['Completed the reasoning session'],
+        potentialIssues: ['Analysis temporarily unavailable'],
+        suggestions: ['Try the session again for detailed feedback'],
+        overallScore: 5,
+        detailedFeedback: 'Session completed successfully. Detailed analysis is temporarily unavailable.'
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const resetSession = () => {
@@ -228,16 +245,24 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const generateFeedbackText = (analysis: any): string => {
     let feedback = `Great job working through "${problemTitle}"! `;
     
-    if (analysis.strengths.length > 0) {
+    if (analysis.overallScore) {
+      feedback += `Your reasoning scored ${analysis.overallScore} out of 10. `;
+    }
+    
+    if (analysis.strengths && analysis.strengths.length > 0) {
       feedback += `I noticed some strong points in your reasoning: ${analysis.strengths.join(', ')}. `;
     }
     
-    if (analysis.potentialIssues.length > 0) {
+    if (analysis.potentialIssues && analysis.potentialIssues.length > 0) {
       feedback += `However, there are a few areas we could improve: ${analysis.potentialIssues.join(', ')}. `;
     }
     
-    if (analysis.suggestions.length > 0) {
+    if (analysis.suggestions && analysis.suggestions.length > 0) {
       feedback += `Here are my suggestions: ${analysis.suggestions.join('. ')}. `;
+    }
+    
+    if (analysis.nextSteps && analysis.nextSteps.length > 0) {
+      feedback += `For next steps, I recommend: ${analysis.nextSteps.join(', ')}. `;
     }
     
     feedback += `Would you like to continue with guided coaching to strengthen these areas?`;
@@ -421,7 +446,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Your Reasoning...</h3>
-            <p className="text-gray-600">AI is processing your thought patterns and identifying insights</p>
+            <p className="text-gray-600">Gemini AI is processing your thought patterns and identifying insights</p>
           </div>
         </Card>
       )}
@@ -475,6 +500,17 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
             </div>
           </Card>
 
+          {/* Overall Score */}
+          {analysis.overallScore && (
+            <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+              <div className="text-center">
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Reasoning Quality Score</h3>
+                <div className="text-4xl font-bold text-blue-600 mb-2">{analysis.overallScore}/10</div>
+                <p className="text-gray-600">{analysis.detailedFeedback}</p>
+              </div>
+            </Card>
+          )}
+
           {/* Analysis Summary */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card className="bg-green-50 border-green-200">
@@ -483,7 +519,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 <h3 className="font-medium text-green-900">Strengths</h3>
               </div>
               <ul className="space-y-1">
-                {analysis.strengths.map((strength: string, index: number) => (
+                {(analysis.strengths || []).map((strength: string, index: number) => (
                   <li key={index} className="text-sm text-green-800">• {strength}</li>
                 ))}
               </ul>
@@ -495,7 +531,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 <h3 className="font-medium text-yellow-900">Areas to Improve</h3>
               </div>
               <ul className="space-y-1">
-                {analysis.potentialIssues.map((issue: string, index: number) => (
+                {(analysis.potentialIssues || []).map((issue: string, index: number) => (
                   <li key={index} className="text-sm text-yellow-800">• {issue}</li>
                 ))}
               </ul>
@@ -507,7 +543,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 <h3 className="font-medium text-blue-900">Suggestions</h3>
               </div>
               <ul className="space-y-1">
-                {analysis.suggestions.map((suggestion: string, index: number) => (
+                {(analysis.suggestions || []).map((suggestion: string, index: number) => (
                   <li key={index} className="text-sm text-blue-800">• {suggestion}</li>
                 ))}
               </ul>
@@ -520,7 +556,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Stage Distribution</h4>
                 <div className="space-y-2">
-                  {Object.entries(analysis.stageDistribution).map(([stage, count]) => (
+                  {Object.entries(analysis.stageDistribution || {}).map(([stage, count]) => (
                     <div key={stage} className="flex items-center justify-between">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${getStageColor(stage)}`}>
                         {stage}
@@ -534,7 +570,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
               <div>
                 <h4 className="font-medium text-gray-900 mb-3">Key Patterns Identified</h4>
                 <div className="space-y-2">
-                  {analysis.identifiedPatterns.map((pattern: string, index: number) => (
+                  {(analysis.identifiedPatterns || []).map((pattern: string, index: number) => (
                     <div key={index} className="flex items-center">
                       <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
                       <span className="text-sm text-gray-700">{pattern}</span>
@@ -543,6 +579,21 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Next Steps */}
+            {analysis.nextSteps && analysis.nextSteps.length > 0 && (
+              <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                <h4 className="font-medium text-indigo-900 mb-3">Recommended Next Steps</h4>
+                <ul className="space-y-2">
+                  {analysis.nextSteps.map((step: string, index: number) => (
+                    <li key={index} className="flex items-start">
+                      <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
+                      <span className="text-sm text-indigo-800">{step}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </Card>
 
           {/* Action Buttons */}
