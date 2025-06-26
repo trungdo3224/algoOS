@@ -11,7 +11,9 @@ import {
   ChevronDown,
   ChevronRight,
   Menu,
-  X
+  X,
+  Mic,
+  Brain
 } from 'lucide-react';
 import { useAppDispatch } from '../../hooks/reduxHooks';
 import { logout } from '../../features/user/userSlice';
@@ -105,6 +107,12 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
       label: 'Dashboard', 
       icon: <Home size={20} />,
       onClick: () => handleNavigation('dashboard')
+    },
+    { 
+      id: 'voice-reasoning', 
+      label: 'Voice Reasoning', 
+      icon: <Mic size={20} />,
+      onClick: () => handleNavigation('voice-reasoning')
     },
     { 
       id: 'ssa-coaching', 

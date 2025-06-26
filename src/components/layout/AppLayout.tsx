@@ -4,6 +4,7 @@ import DynamicSidebar from './DynamicSidebar';
 import Dashboard from '../../pages/Dashboard';
 import IdeaGrader from '../../pages/IdeaGrader';
 import SsaCoaching from '../../pages/SsaCoaching';
+import VoiceReasoningMode from '../../pages/VoiceReasoningMode';
 import Revision from '../../pages/Revision';
 import VideoFeedback from '../../pages/VideoFeedback';
 import Settings from '../../pages/Settings';
@@ -42,6 +43,8 @@ const AppLayout: React.FC = () => {
     switch (activePage) {
       case 'dashboard':
         return <Dashboard />;
+      case 'voice-reasoning':
+        return <VoiceReasoningMode />;
       case 'idea-grader':
         return <IdeaGrader />;
       case 'ssa-coaching':
@@ -97,8 +100,9 @@ const AppLayout: React.FC = () => {
         )}
         
         <main className={`
-          flex-1 overflow-y-auto bg-gray-50 p-4 sm:p-6 md:p-8 transition-all duration-300
+          flex-1 overflow-y-auto bg-gray-50 transition-all duration-300
           ${isSidebarCollapsed ? 'md:ml-0' : 'md:ml-0'}
+          ${activePage === 'voice-reasoning' ? 'p-0' : 'p-4 sm:p-6 md:p-8'}
         `}>
           {renderContent()}
         </main>
