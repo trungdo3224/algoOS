@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
+// Declare the export variable at the top level
+export let supabase: any;
+
 // Check if environment variables are properly configured
 if (!supabaseUrl || !supabaseAnonKey || 
     supabaseUrl === 'your-supabase-project-url' || 
@@ -10,7 +13,7 @@ if (!supabaseUrl || !supabaseAnonKey ||
   console.warn('Supabase environment variables are not properly configured. Using mock client.');
   
   // Create a mock client that won't cause errors
-  export const supabase = {
+  supabase = {
     auth: {
       signUp: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
       signInWithPassword: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
@@ -24,9 +27,9 @@ if (!supabaseUrl || !supabaseAnonKey ||
       update: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') }),
       delete: () => Promise.resolve({ data: null, error: new Error('Supabase not configured') })
     })
-  } as any;
+  };
 } else {
-  export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  supabase = createClient(supabaseUrl, supabaseAnonKey);
 }
 
 export type ProblemStatus = 
