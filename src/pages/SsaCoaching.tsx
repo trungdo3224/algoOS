@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, Mic } from 'lucide-react';
 import ProblemStatement from '../components/ssa-coaching/ProblemStatement';
 import CoachingInterface from '../components/ssa-coaching/CoachingInterface';
 import ProblemSelector from '../components/ssa-coaching/ProblemSelector';
 import StageNavigation from '../components/ssa-coaching/StageNavigation';
 import SessionControls from '../components/ssa-coaching/SessionControls';
 import SessionSummary from '../components/ssa-coaching/SessionSummary';
+import VoiceReasoningModal from '../components/voice-reasoning/VoiceReasoningModal';
 import Button from '../components/ui/Button';
+import Card from '../components/ui/Card';
 import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import { validateStage } from '../services/gemini';
@@ -27,6 +29,7 @@ const SsaCoaching: React.FC = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isProblemSelectorOpen, setIsProblemSelectorOpen] = useState(false);
+  const [isVoiceReasoningOpen, setIsVoiceReasoningOpen] = useState(false);
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,7 @@ const SsaCoaching: React.FC = () => {
   const [showSummary, setShowSummary] = useState(false);
   const [sessionStartTime, setSessionStartTime] = useState<Date>(new Date());
   const [stageResponses, setStageResponses] = useState<{[key: number]: {userAnswer: string, assistantFeedback: string}}>({});
+  const [voiceReasoningAnalysis, setVoiceReasoningAnalysis] = useState<any>(null);
 
   // Load persisted problem from localStorage on component mount
   useEffect(() => {
@@ -192,6 +196,7 @@ const SsaCoaching: React.FC = () => {
     setStageResponses({});
     setShowSummary(false);
     setCurrentSession(null);
+    setVoiceReasoningAnalysis(null);
 
     // Create new session
     await createNewSession();
@@ -246,7 +251,8 @@ const SsaCoaching: React.FC = () => {
           session_data: { 
             messages: updatedMessages,
             validatedStages,
-            stageResponses
+            stageResponses,
+            voiceReasoningAnalysis
           }
         })
         .eq('session_id', currentSession.session_id);
@@ -320,7 +326,8 @@ const SsaCoaching: React.FC = () => {
             session_data: { 
               messages: finalMessages,
               validatedStages: newValidatedStages,
-              stageResponses: newStageResponses
+              stageResponses: newStageResponses,
+              voiceReasoningAnalysis
             }
           })
           .eq('session_id', currentSession.session_id);
@@ -394,7 +401,8 @@ const SsaCoaching: React.FC = () => {
           session_data: { 
             messages: [...messages, stageMessage],
             validatedStages,
-            stageResponses
+            stageResponses,
+            voiceReasoningAnalysis
           }
         })
         .eq('session_id', currentSession.session_id);
@@ -419,6 +427,7 @@ const SsaCoaching: React.FC = () => {
     setStageResponses({});
     setShowSummary(false);
     setCurrentSession(null);
+    setVoiceReasoningAnalysis(null);
     
     // Set the new problem - this will trigger the useEffect to load/create session
     setSelectedProblem(problem);
@@ -448,6 +457,49 @@ const SsaCoaching: React.FC = () => {
     setStageResponses({});
     setShowSummary(false);
     setCurrentSession(null);
+    setVoiceReasoningAnalysis(null);
+  };
+
+  const handleVoiceReasoningComplete = (analysis: any, chunks: any[]) => {
+    setVoiceReasoningAnalysis(analysis);
+    
+    // Add a message about the voice reasoning session
+    const voiceMessage: Message = {
+      id: Date.now().toString(),
+      content: `Great! I've analyzed your voice reasoning session. I noticed ${analysis.strengths.length} strengths and ${analysis.potentialIssues.length} areas for improvement. Let's continue with the guided coaching to address these insights.`,
+      sender: 'assistant',
+      timestamp: new Date(),
+      stage: currentStage
+    };
+    
+    setMessages(prev => [...prev, voiceMessage]);
+  };
+
+  const handleStartSSAFromVoice = (analysis: any) => {
+    setVoiceReasoningAnalysis(analysis);
+    
+    // Create a targeted message based on voice analysis
+    let targetedMessage = `Based on your voice reasoning session, I've identified some key areas to focus on. `;
+    
+    if (analysis.potentialIssues.length > 0) {
+      targetedMessage += `Let's work on: ${analysis.potentialIssues.join(', ')}. `;
+    }
+    
+    if (analysis.suggestions.length > 0) {
+      targetedMessage += `Here's what I suggest we focus on: ${analysis.suggestions[0]}. `;
+    }
+    
+    targetedMessage += `Let's start with the current stage and build from your insights.`;
+
+    const targetedSSAMessage: Message = {
+      id: Date.now().toString(),
+      content: targetedMessage,
+      sender: 'assistant',
+      timestamp: new Date(),
+      stage: currentStage
+    };
+    
+    setMessages(prev => [...prev, targetedSSAMessage]);
   };
 
   const getSummaryData = () => {
@@ -494,13 +546,22 @@ const SsaCoaching: React.FC = () => {
         </div>
         <div className="flex items-center space-x-3">
           {selectedProblem && (
-            <Button
-              onClick={handleDiscardProblem}
-              variant="outline"
-              className="text-red-600 border-red-300 hover:bg-red-50"
-            >
-              Discard Problem
-            </Button>
+            <>
+              <Button
+                onClick={() => setIsVoiceReasoningOpen(true)}
+                className="bg-purple-500 hover:bg-purple-600 text-white"
+                leftIcon={<Mic className="h-4 w-4" />}
+              >
+                Voice Reasoning
+              </Button>
+              <Button
+                onClick={handleDiscardProblem}
+                variant="outline"
+                className="text-red-600 border-red-300 hover:bg-red-50"
+              >
+                Discard Problem
+              </Button>
+            </>
           )}
           <Button
             onClick={handleChooseProblem}
@@ -520,12 +581,21 @@ const SsaCoaching: React.FC = () => {
           </div>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No Problem Selected</h3>
           <p className="text-gray-600 mb-4">Choose a problem to start your SSA coaching session.</p>
-          <Button
-            onClick={handleChooseProblem}
-            leftIcon={<Plus className="h-4 w-4" />}
-          >
-            Choose Problem
-          </Button>
+          <div className="flex justify-center space-x-3">
+            <Button
+              onClick={handleChooseProblem}
+              leftIcon={<Plus className="h-4 w-4" />}
+            >
+              Choose Problem
+            </Button>
+            <Button
+              onClick={() => setIsVoiceReasoningOpen(true)}
+              className="bg-purple-500 hover:bg-purple-600 text-white"
+              leftIcon={<Mic className="h-4 w-4" />}
+            >
+              Start with Voice Reasoning
+            </Button>
+          </div>
         </div>
       ) : (
         <>
@@ -548,8 +618,15 @@ const SsaCoaching: React.FC = () => {
                   </p>
                 </div>
               </div>
-              <div className="text-sm text-blue-600">
-                Session in progress
+              <div className="flex items-center space-x-2">
+                {voiceReasoningAnalysis && (
+                  <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
+                    Voice Analysis Available
+                  </span>
+                )}
+                <span className="text-sm text-blue-600">
+                  Session in progress
+                </span>
               </div>
             </div>
           </div>
@@ -607,6 +684,14 @@ const SsaCoaching: React.FC = () => {
         onClose={() => setIsProblemSelectorOpen(false)}
         onSelectProblem={handleSelectProblem}
         onAddNewProblem={handleAddNewProblem}
+      />
+
+      <VoiceReasoningModal
+        isOpen={isVoiceReasoningOpen}
+        onClose={() => setIsVoiceReasoningOpen(false)}
+        problem={selectedProblem || problems[0]}
+        onComplete={handleVoiceReasoningComplete}
+        onStartSSA={handleStartSSAFromVoice}
       />
 
       {showSummary && (

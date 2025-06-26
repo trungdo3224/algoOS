@@ -257,7 +257,7 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
           <div className="flex items-center justify-between">
             <div className="flex items-center">
               <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-sm">AL</span>
+                <span className="text-white font-bold text-sm">AM</span>
               </div>
               <h2 className="text-lg font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-transparent bg-clip-text">
                 AlgoMind
