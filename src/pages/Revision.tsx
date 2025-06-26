@@ -1,5 +1,5 @@
 import React from 'react';
-import { Brain, Clock, AlertTriangle, Repeat, TrendingDown, Target, BookOpen, ArrowRight } from 'lucide-react';
+import { Brain, Clock, AlertTriangle, Repeat, TrendingDown, Target, BookOpen, ArrowRight, Trophy } from 'lucide-react';
 import Card from '../components/ui/Card';
 import RevisionSuggestion from '../components/revision/RevisionSuggestion';
 import Button from '../components/ui/Button';
