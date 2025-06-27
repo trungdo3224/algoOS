@@ -27,6 +27,8 @@ interface VoiceAnalysisResponse {
   nextSteps: string[];
 }
 
+import type { RealWorldApplication, Problem } from '../lib/supabase';
+
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
 
@@ -176,6 +178,233 @@ If not valid (is_valid: false): Help them think about implementation details, op
       assistant_reply: "I'm having trouble processing your response right now. Could you please rephrase your answer or try again?"
     };
   }
+}
+
+export async function generateRealWorldApplication(problem: Problem): Promise<RealWorldApplication> {
+  const prompt = `You are an expert software engineer and computer science educator. Generate a comprehensive real-world application analysis for the following competitive programming problem.
+
+**Problem Details:**
+- Title: "${problem.title}"
+- Description: "${problem.description}"
+- Difficulty: ${problem.difficulty}
+- Tags: ${problem.tags.join(', ')}
+- Constraints: "${problem.constraints}"
+
+**Task:** Create a detailed real-world application analysis with three main sections:
+
+**Response Format (JSON):**
+{
+  "theoreticalFoundation": {
+    "concepts": ["concept1", "concept2", ...],
+    "algorithms": ["algorithm1", "algorithm2", ...],
+    "dataStructures": ["structure1", "structure2", ...],
+    "timeComplexity": "O(n) explanation",
+    "spaceComplexity": "O(1) explanation",
+    "explanation": "Detailed explanation of the theoretical foundation"
+  },
+  "practicalApplication": {
+    "realWorldScenarios": [
+      {
+        "title": "Scenario Title",
+        "description": "Detailed scenario description",
+        "industry": "Industry name"
+      }
+    ],
+    "concreteExamples": ["example1", "example2"],
+    "openEndedQuestion": "How would you modify this algorithm for real-time systems?",
+    "modifications": ["modification1", "modification2"]
+  },
+  "reframedProblem": {
+    "title": "Real-world Problem Title",
+    "description": "Software engineering challenge description",
+    "apiSpec": {
+      "endpoint": "/api/endpoint",
+      "method": "POST",
+      "requestFormat": "JSON request format",
+      "responseFormat": "JSON response format"
+    },
+    "constraints": ["constraint1", "constraint2"],
+    "edgeCases": ["edge case1", "edge case2"],
+    "systemDesignConsiderations": ["consideration1", "consideration2"]
+  }
+}
+
+**Guidelines:**
+1. **Theoretical Foundation**: Identify the core CS concepts, algorithms, and data structures. Explain time/space complexity clearly.
+
+2. **Practical Application**: Provide 2-3 real-world scenarios where this algorithm is used. Include concrete examples from different industries (tech, finance, healthcare, etc.). Ask a thoughtful open-ended question about real-time or distributed systems.
+
+3. **Reframed Problem**: Transform the CP problem into a software engineering challenge. Include API specifications, real-world constraints, edge cases, and system design considerations.
+
+**Important:**
+- Be specific and practical
+- Use real industry examples
+- Consider scalability and performance
+- Include modern software engineering practices
+- Make it educational and engaging
+
+Generate the JSON response now:`;
+
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    const requestBody: GeminiRequest = {
+      contents: [{
+        role: "user",
+        parts: [{
+          text: prompt
+        }]
+      }]
+    };
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!responseText) {
+      throw new Error('No response from Gemini API');
+    }
+
+    // Try to parse JSON response
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       responseText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        const parsed = JSON.parse(jsonStr);
+        
+        // Validate and ensure all required fields are present
+        const realWorldApp: RealWorldApplication = {
+          theoreticalFoundation: {
+            concepts: parsed.theoreticalFoundation?.concepts || [],
+            algorithms: parsed.theoreticalFoundation?.algorithms || [],
+            dataStructures: parsed.theoreticalFoundation?.dataStructures || [],
+            timeComplexity: parsed.theoreticalFoundation?.timeComplexity || 'O(n)',
+            spaceComplexity: parsed.theoreticalFoundation?.spaceComplexity || 'O(1)',
+            explanation: parsed.theoreticalFoundation?.explanation || 'Theoretical foundation analysis'
+          },
+          practicalApplication: {
+            realWorldScenarios: parsed.practicalApplication?.realWorldScenarios || [],
+            concreteExamples: parsed.practicalApplication?.concreteExamples || [],
+            openEndedQuestion: parsed.practicalApplication?.openEndedQuestion || 'How would you optimize this for production use?',
+            modifications: parsed.practicalApplication?.modifications || []
+          },
+          reframedProblem: {
+            title: parsed.reframedProblem?.title || 'Real-world Engineering Challenge',
+            description: parsed.reframedProblem?.description || 'Software engineering implementation',
+            apiSpec: parsed.reframedProblem?.apiSpec,
+            constraints: parsed.reframedProblem?.constraints || [],
+            edgeCases: parsed.reframedProblem?.edgeCases || [],
+            systemDesignConsiderations: parsed.reframedProblem?.systemDesignConsiderations || []
+          },
+          generatedAt: new Date()
+        };
+        
+        return realWorldApp;
+      }
+    } catch (parseError) {
+      console.warn('Could not parse JSON from Gemini response, using fallback');
+    }
+
+    // Fallback: create basic analysis from response text
+    return createFallbackRealWorldApplication(problem, responseText);
+
+  } catch (error) {
+    console.error('Error generating real-world application with Gemini:', error);
+    
+    // Return fallback analysis
+    return createFallbackRealWorldApplication(problem, 'Failed to generate analysis');
+  }
+}
+
+function createFallbackRealWorldApplication(problem: Problem, responseText: string): RealWorldApplication {
+  // Create basic real-world application based on problem tags and difficulty
+  const commonPatterns: Record<string, any> = {
+    'Array': {
+      concepts: ['Array manipulation', 'Indexing', 'Iteration'],
+      algorithms: ['Linear search', 'Two pointers'],
+      scenarios: [{ title: 'Data processing', description: 'Processing user data in batches', industry: 'Technology' }]
+    },
+    'String': {
+      concepts: ['String processing', 'Pattern matching'],
+      algorithms: ['String matching', 'Parsing'],
+      scenarios: [{ title: 'Text analysis', description: 'Processing user input validation', industry: 'Web Development' }]
+    },
+    'Dynamic Programming': {
+      concepts: ['Optimization', 'Memoization', 'Subproblems'],
+      algorithms: ['Dynamic programming', 'Recursion with memoization'],
+      scenarios: [{ title: 'Resource optimization', description: 'Optimizing resource allocation', industry: 'Operations' }]
+    }
+  };
+
+  const primaryTag = problem.tags[0] || 'General';
+  const pattern = commonPatterns[primaryTag] || commonPatterns['Array'];
+
+  return {
+    theoreticalFoundation: {
+      concepts: pattern.concepts,
+      algorithms: pattern.algorithms,
+      dataStructures: ['Array', 'Hash Map'],
+      timeComplexity: 'O(n) - Linear time complexity',
+      spaceComplexity: 'O(1) - Constant space',
+      explanation: `This problem demonstrates fundamental ${primaryTag.toLowerCase()} concepts and their practical applications in software engineering.`
+    },
+    practicalApplication: {
+      realWorldScenarios: pattern.scenarios,
+      concreteExamples: [
+        'User data validation in web applications',
+        'Batch processing in data pipelines'
+      ],
+      openEndedQuestion: 'How would you modify this algorithm to handle real-time data streams?',
+      modifications: [
+        'Add error handling for edge cases',
+        'Implement caching for better performance',
+        'Consider distributed processing for large datasets'
+      ]
+    },
+    reframedProblem: {
+      title: `${problem.title} - Production Implementation`,
+      description: `Implement a production-ready solution for ${problem.title.toLowerCase()} that handles real-world constraints and edge cases.`,
+      apiSpec: {
+        endpoint: '/api/process',
+        method: 'POST',
+        requestFormat: '{ "data": [...], "options": {...} }',
+        responseFormat: '{ "result": [...], "metadata": {...} }'
+      },
+      constraints: [
+        'Handle up to 10,000 items per request',
+        'Response time under 100ms',
+        'Memory usage under 512MB'
+      ],
+      edgeCases: [
+        'Empty input arrays',
+        'Null or undefined values',
+        'Extremely large datasets'
+      ],
+      systemDesignConsiderations: [
+        'Horizontal scaling capabilities',
+        'Error handling and recovery',
+        'Monitoring and logging',
+        'Rate limiting and security'
+      ]
+    },
+    generatedAt: new Date()
+  };
 }
 
 export async function analyzeVoiceReasoning(

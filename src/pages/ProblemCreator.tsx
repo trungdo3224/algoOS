@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2, Globe } from 'lucide-react';
+import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2, Globe, Briefcase } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProblemForm from '../components/problem-creator/ProblemForm';
 import ProblemFilters from '../components/problems/ProblemFilters';
+import RealWorldApplicationModal from '../components/problems/RealWorldApplicationModal';
 import Button from '../components/ui/Button';
 import { useAppDispatch, useAppSelector } from '../hooks/reduxHooks';
 import { fetchProblems, createProblem, updateProblem, deleteProblem } from '../features/problems/problemSlice';
@@ -46,6 +47,8 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
   const [apiError, setApiError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
+  const [isRealWorldModalOpen, setIsRealWorldModalOpen] = useState(false);
+  const [realWorldProblem, setRealWorldProblem] = useState<Problem | null>(null);
   const [filters, setFilters] = useState<FilterState>({
     site: 'all',
     difficulty: 'all',
@@ -146,6 +149,11 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
         console.error('Error deleting problem:', err);
       }
     }
+  };
+
+  const handleRealWorldView = (problem: Problem) => {
+    setRealWorldProblem(problem);
+    setIsRealWorldModalOpen(true);
   };
 
   // Get unique values for filters
@@ -302,7 +310,7 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
                         )}
                       </div>
                       <p className="text-sm text-gray-600 mb-3 line-clamp-2">{problem.description}</p>
-                      <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-4 mb-3">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
                           ${problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
                             problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
@@ -318,6 +326,19 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
                           <Clock className="h-4 w-4 mr-1" />
                           20-30 min
                         </span>
+                      </div>
+                      
+                      {/* Real-world Application Button */}
+                      <div className="mb-3">
+                        <Button
+                          onClick={() => handleRealWorldView(problem)}
+                          variant="outline"
+                          size="sm"
+                          className="text-purple-600 border-purple-300 hover:bg-purple-50"
+                          leftIcon={<Briefcase className="h-4 w-4" />}
+                        >
+                          🔁 Switch to Real-world View
+                        </Button>
                       </div>
                     </div>
                     <div className="flex items-start space-x-4">
@@ -400,6 +421,18 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
             </div>
           </div>
         </div>
+      )}
+
+      {/* Real-world Application Modal */}
+      {realWorldProblem && (
+        <RealWorldApplicationModal
+          isOpen={isRealWorldModalOpen}
+          onClose={() => {
+            setIsRealWorldModalOpen(false);
+            setRealWorldProblem(null);
+          }}
+          problem={realWorldProblem}
+        />
       )}
     </div>
   );

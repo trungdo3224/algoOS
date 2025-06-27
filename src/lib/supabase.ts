@@ -28,6 +28,48 @@ export type ProblemSite =
   | 'InterviewBit'
   | 'Custom';
 
+// Real-world Application Types
+export interface TheoreticalFoundation {
+  concepts: string[];
+  algorithms: string[];
+  dataStructures: string[];
+  timeComplexity: string;
+  spaceComplexity: string;
+  explanation: string;
+}
+
+export interface PracticalApplication {
+  realWorldScenarios: {
+    title: string;
+    description: string;
+    industry: string;
+  }[];
+  concreteExamples: string[];
+  openEndedQuestion: string;
+  modifications: string[];
+}
+
+export interface ReframedProblem {
+  title: string;
+  description: string;
+  apiSpec?: {
+    endpoint: string;
+    method: string;
+    requestFormat: string;
+    responseFormat: string;
+  };
+  constraints: string[];
+  edgeCases: string[];
+  systemDesignConsiderations: string[];
+}
+
+export interface RealWorldApplication {
+  theoreticalFoundation: TheoreticalFoundation;
+  practicalApplication: PracticalApplication;
+  reframedProblem: ReframedProblem;
+  generatedAt: Date;
+}
+
 // Type definitions for our database tables
 export type User = {
   user_id: string;
@@ -92,13 +134,4 @@ export type Insight = {
   avg_score: number;
   mistakes: number;
   updated_at: string;
-};
-
-export type VideoFeedback = {
-  feedback_id: number;
-  user_id: string;
-  problem_id: string;
-  submission_id: number;
-  video_url: string;
-  generated_at: string;
 };
