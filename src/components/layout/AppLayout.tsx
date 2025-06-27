@@ -8,6 +8,7 @@ import VoiceReasoningMode from '../../pages/VoiceReasoningMode';
 import Revision from '../../pages/Revision';
 import Settings from '../../pages/Settings';
 import LoginPage from '../../pages/LoginPage';
+import LandingPage from '../../pages/LandingPage';
 import ProblemCreator from '../../pages/ProblemCreator';
 import { useAppSelector } from '../../hooks/reduxHooks';
 
@@ -25,8 +26,9 @@ const AppLayout: React.FC = () => {
     );
   }
 
+  // Show landing page if user is not logged in
   if (!userId) {
-    return <LoginPage />;
+    return <LandingPage />;
   }
 
   const handlePageChange = (page: string, options?: { openModal?: boolean }) => {
