@@ -27,7 +27,7 @@ interface VoiceAnalysisResponse {
   nextSteps: string[];
 }
 
-import type { RealWorldApplication, Problem } from '../lib/supabase';
+import type { RealWorldApplication, Problem, GeneratedProblemOutput } from '../lib/supabase';
 
 const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
@@ -178,6 +178,233 @@ If not valid (is_valid: false): Help them think about implementation details, op
       assistant_reply: "I'm having trouble processing your response right now. Could you please rephrase your answer or try again?"
     };
   }
+}
+
+export async function generateProblemFromCode(
+  code: string,
+  desiredPattern?: string,
+  difficulty: 'Easy' | 'Medium' | 'Hard' = 'Medium'
+): Promise<GeneratedProblemOutput> {
+  const prompt = `You are an expert competitive programming problem setter. Analyze the provided code solution and generate a complete, well-structured competitive programming problem that would lead to this solution.
+
+**Code to analyze:**
+\`\`\`
+${code}
+\`\`\`
+
+**Requirements:**
+- Desired algorithmic pattern: ${desiredPattern || 'Auto-detect from code'}
+- Target difficulty: ${difficulty}
+
+**Task:** Generate a competitive programming problem that would naturally lead to this code solution.
+
+**Response Format (JSON):**
+{
+  "title": "Creative problem title",
+  "description": "Clear, engaging problem description with story/context",
+  "difficulty": "${difficulty}",
+  "tags": ["tag1", "tag2", "tag3"],
+  "inputFormat": "Description of input format",
+  "outputFormat": "Description of output format", 
+  "examples": [
+    {
+      "input": "sample input",
+      "output": "sample output",
+      "explanation": "why this output for this input"
+    }
+  ],
+  "constraints": ["constraint1", "constraint2"],
+  "hints": ["hint1", "hint2"],
+  "inferredAssumptions": ["assumption1", "assumption2"],
+  "hiddenEdgeCases": ["edge case1", "edge case2"],
+  "algorithmicPattern": "Main algorithmic pattern used",
+  "timeComplexity": "O(n) explanation",
+  "spaceComplexity": "O(1) explanation"
+}
+
+**Guidelines:**
+1. **Problem Story**: Create an engaging narrative context (not just abstract arrays/numbers)
+2. **Natural Flow**: The problem should naturally lead someone to write similar code
+3. **Appropriate Difficulty**: Match the complexity to the specified difficulty level
+4. **Complete Examples**: Provide 2-3 comprehensive examples with explanations
+5. **Realistic Constraints**: Set constraints that make sense for the algorithm
+6. **Hidden Insights**: Identify assumptions and edge cases that aren't immediately obvious
+7. **Educational Value**: The problem should teach the underlying algorithmic concept
+
+**Analysis Focus:**
+- What problem would naturally require this algorithmic approach?
+- What data structures and patterns does the code use?
+- What are the time/space complexity characteristics?
+- What edge cases does the code handle (or miss)?
+- What constraints would make this solution optimal?
+
+Generate the JSON response now:`;
+
+  try {
+    if (!GEMINI_API_KEY) {
+      throw new Error('Gemini API key not configured');
+    }
+
+    const requestBody: GeminiRequest = {
+      contents: [{
+        role: "user",
+        parts: [{
+          text: prompt
+        }]
+      }]
+    };
+
+    const response = await fetch(`${GEMINI_API_URL}?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!responseText) {
+      throw new Error('No response from Gemini API');
+    }
+
+    // Try to parse JSON response
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      const jsonMatch = responseText.match(/```json\s*([\s\S]*?)\s*```/) || 
+                       responseText.match(/\{[\s\S]*\}/);
+      
+      if (jsonMatch) {
+        const jsonStr = jsonMatch[1] || jsonMatch[0];
+        const parsed = JSON.parse(jsonStr);
+        
+        // Validate and ensure all required fields are present
+        const generatedProblem: GeneratedProblemOutput = {
+          title: parsed.title || 'Generated Problem',
+          description: parsed.description || 'Problem description generated from code analysis',
+          difficulty: parsed.difficulty || difficulty,
+          tags: parsed.tags || ['Algorithm'],
+          inputFormat: parsed.inputFormat || 'Input format description',
+          outputFormat: parsed.outputFormat || 'Output format description',
+          examples: parsed.examples || [{
+            input: 'Sample input',
+            output: 'Sample output',
+            explanation: 'Explanation of the example'
+          }],
+          constraints: parsed.constraints || ['1 ≤ n ≤ 10^5'],
+          hints: parsed.hints || [],
+          inferredAssumptions: parsed.inferredAssumptions || [],
+          hiddenEdgeCases: parsed.hiddenEdgeCases || [],
+          algorithmicPattern: parsed.algorithmicPattern || 'Pattern analysis',
+          timeComplexity: parsed.timeComplexity || 'O(n)',
+          spaceComplexity: parsed.spaceComplexity || 'O(1)',
+          generatedAt: new Date()
+        };
+        
+        return generatedProblem;
+      }
+    } catch (parseError) {
+      console.warn('Could not parse JSON from Gemini response, using fallback');
+    }
+
+    // Fallback: create basic problem from response text
+    return createFallbackGeneratedProblem(code, difficulty, responseText);
+
+  } catch (error) {
+    console.error('Error generating problem from code with Gemini:', error);
+    
+    // Return fallback problem
+    return createFallbackGeneratedProblem(code, difficulty, 'Failed to generate problem');
+  }
+}
+
+function createFallbackGeneratedProblem(
+  code: string, 
+  difficulty: 'Easy' | 'Medium' | 'Hard',
+  responseText: string
+): GeneratedProblemOutput {
+  // Analyze code for basic patterns
+  const codeAnalysis = analyzeCodePatterns(code);
+  
+  return {
+    title: `${codeAnalysis.pattern} Challenge`,
+    description: `This problem requires implementing a ${codeAnalysis.pattern.toLowerCase()} solution. ${responseText.substring(0, 200)}...`,
+    difficulty,
+    tags: codeAnalysis.tags,
+    inputFormat: 'The first line contains an integer n. The second line contains n space-separated integers.',
+    outputFormat: 'Output a single integer representing the result.',
+    examples: [{
+      input: '5\n1 2 3 4 5',
+      output: '15',
+      explanation: 'Example explanation based on the algorithm'
+    }],
+    constraints: [
+      '1 ≤ n ≤ 10^5',
+      '-10^9 ≤ array elements ≤ 10^9'
+    ],
+    hints: [
+      `Consider using ${codeAnalysis.pattern.toLowerCase()} approach`,
+      'Think about the time complexity requirements'
+    ],
+    inferredAssumptions: [
+      'Input is well-formed',
+      'Array elements fit in standard integer range'
+    ],
+    hiddenEdgeCases: [
+      'Empty array case',
+      'Single element array',
+      'All elements are the same'
+    ],
+    algorithmicPattern: codeAnalysis.pattern,
+    timeComplexity: codeAnalysis.timeComplexity,
+    spaceComplexity: codeAnalysis.spaceComplexity,
+    generatedAt: new Date()
+  };
+}
+
+function analyzeCodePatterns(code: string) {
+  const lowerCode = code.toLowerCase();
+  
+  // Basic pattern detection
+  let pattern = 'Algorithm';
+  let tags = ['Algorithm'];
+  let timeComplexity = 'O(n)';
+  let spaceComplexity = 'O(1)';
+  
+  if (lowerCode.includes('for') && lowerCode.includes('for')) {
+    pattern = 'Nested Loops';
+    tags = ['Array', 'Nested Loops'];
+    timeComplexity = 'O(n²)';
+  } else if (lowerCode.includes('sort')) {
+    pattern = 'Sorting';
+    tags = ['Sorting', 'Array'];
+    timeComplexity = 'O(n log n)';
+  } else if (lowerCode.includes('dp') || lowerCode.includes('memo')) {
+    pattern = 'Dynamic Programming';
+    tags = ['Dynamic Programming', 'Memoization'];
+    timeComplexity = 'O(n)';
+    spaceComplexity = 'O(n)';
+  } else if (lowerCode.includes('stack') || lowerCode.includes('queue')) {
+    pattern = 'Stack/Queue';
+    tags = ['Stack', 'Queue', 'Data Structure'];
+    spaceComplexity = 'O(n)';
+  } else if (lowerCode.includes('binary') || lowerCode.includes('search')) {
+    pattern = 'Binary Search';
+    tags = ['Binary Search', 'Search'];
+    timeComplexity = 'O(log n)';
+  } else if (lowerCode.includes('graph') || lowerCode.includes('dfs') || lowerCode.includes('bfs')) {
+    pattern = 'Graph Traversal';
+    tags = ['Graph', 'DFS', 'BFS'];
+    timeComplexity = 'O(V + E)';
+    spaceComplexity = 'O(V)';
+  }
+  
+  return { pattern, tags, timeComplexity, spaceComplexity };
 }
 
 export async function generateRealWorldApplication(problem: Problem): Promise<RealWorldApplication> {

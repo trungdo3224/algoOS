@@ -5,6 +5,7 @@ import Dashboard from '../../pages/Dashboard';
 import IdeaGrader from '../../pages/IdeaGrader';
 import SsaCoaching from '../../pages/SsaCoaching';
 import VoiceReasoningMode from '../../pages/VoiceReasoningMode';
+import ReverseChallenge from '../../pages/ReverseChallenge';
 import Revision from '../../pages/Revision';
 import Settings from '../../pages/Settings';
 import LoginPage from '../../pages/LoginPage';
@@ -46,6 +47,8 @@ const AppLayout: React.FC = () => {
         return <Dashboard />;
       case 'voice-reasoning':
         return <VoiceReasoningMode />;
+      case 'reverse-challenge':
+        return <ReverseChallenge />;
       case 'idea-grader':
         return <IdeaGrader />;
       case 'ssa-coaching':

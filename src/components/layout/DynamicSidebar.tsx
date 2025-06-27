@@ -12,7 +12,8 @@ import {
   Menu,
   X,
   Mic,
-  Brain
+  Brain,
+  RefreshCw
 } from 'lucide-react';
 import { useAppDispatch } from '../../hooks/reduxHooks';
 import { logout } from '../../features/user/userSlice';
@@ -112,6 +113,12 @@ const DynamicSidebar: React.FC<DynamicSidebarProps> = ({
       label: 'Voice Reasoning', 
       icon: <Mic size={20} />,
       onClick: () => handleNavigation('voice-reasoning')
+    },
+    { 
+      id: 'reverse-challenge', 
+      label: 'Reverse Challenge', 
+      icon: <RefreshCw size={20} />,
+      onClick: () => handleNavigation('reverse-challenge')
     },
     { 
       id: 'ssa-coaching', 

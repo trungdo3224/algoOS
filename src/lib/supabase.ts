@@ -28,6 +28,29 @@ export type ProblemSite =
   | 'InterviewBit'
   | 'Custom';
 
+// Generated Problem Types for Reverse Challenge
+export interface GeneratedProblemOutput {
+  title: string;
+  description: string;
+  difficulty: 'Easy' | 'Medium' | 'Hard';
+  tags: string[];
+  inputFormat: string;
+  outputFormat: string;
+  examples: {
+    input: string;
+    output: string;
+    explanation?: string;
+  }[];
+  constraints: string[];
+  hints?: string[];
+  inferredAssumptions: string[];
+  hiddenEdgeCases: string[];
+  algorithmicPattern: string;
+  timeComplexity: string;
+  spaceComplexity: string;
+  generatedAt: Date;
+}
+
 // Real-world Application Types
 export interface TheoreticalFoundation {
   concepts: string[];
