@@ -26,6 +26,11 @@ import Button from '../components/ui/Button';
 const LandingPage: React.FC = () => {
   const [activeFeature, setActiveFeature] = useState(0);
 
+  const handleStartLearning = () => {
+    // Navigate to sign up page
+    window.location.href = '/signup';
+  };
+
   const features = [
     {
       icon: <Mic className="h-8 w-8" />,
@@ -114,6 +119,7 @@ const LandingPage: React.FC = () => {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
               <Button 
+                onClick={handleStartLearning}
                 className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
                 rightIcon={<ArrowRight className="h-5 w-5" />}
               >
@@ -412,6 +418,7 @@ const LandingPage: React.FC = () => {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-8">
             <Button 
+              onClick={handleStartLearning}
               className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
               rightIcon={<ArrowRight className="h-5 w-5" />}
             >
