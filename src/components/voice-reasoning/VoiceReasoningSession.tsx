@@ -69,6 +69,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const [userInput, setUserInput] = useState('');
   const [showChatInput, setShowChatInput] = useState(false);
   const [lastAIResponseTime, setLastAIResponseTime] = useState<number>(0);
+  const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   
   // Voice service state
   const [voiceError, setVoiceError] = useState<VoiceError | null>(null);
@@ -85,9 +86,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startTimeRef = useRef<number>(0);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const lastSpeechTimeRef = useRef<number>(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const rateLimitTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const silenceCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   const silenceThreshold = 15000; // 15 seconds of silence
   const minTimeBetweenAI = 30000; // 30 seconds minimum between AI responses
@@ -122,6 +123,10 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     if (rateLimitTimerRef.current) {
       clearTimeout(rateLimitTimerRef.current);
       rateLimitTimerRef.current = null;
+    }
+    if (silenceCheckIntervalRef.current) {
+      clearInterval(silenceCheckIntervalRef.current);
+      silenceCheckIntervalRef.current = null;
     }
   };
 
@@ -176,57 +181,41 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
-  const startSilenceTimer = () => {
-    // Clear existing timers
-    if (silenceTimerRef.current) {
-      clearTimeout(silenceTimerRef.current);
-    }
-    if (countdownIntervalRef.current) {
-      clearInterval(countdownIntervalRef.current);
-    }
-
-    const now = Date.now();
-    lastSpeechTimeRef.current = now;
+  // Continuous silence monitoring
+  const startSilenceMonitoring = () => {
+    updateDebugInfo('Starting continuous silence monitoring');
     
-    // Check if enough time has passed since last AI response
-    const timeSinceLastAI = now - lastAIResponseTime;
-    if (timeSinceLastAI < minTimeBetweenAI) {
-      updateDebugInfo(`Too soon for AI response (${Math.round((minTimeBetweenAI - timeSinceLastAI) / 1000)}s remaining)`);
-      return;
-    }
+    silenceCheckIntervalRef.current = setInterval(() => {
+      if (!isRecording || isPaused || isWaitingForResponse || !isVoiceServiceAvailable) {
+        return;
+      }
 
-    // Don't start timer if voice service is unavailable
-    if (!isVoiceServiceAvailable) {
-      updateDebugInfo('Voice service unavailable, skipping AI response timer');
-      return;
-    }
+      const now = Date.now();
+      const timeSinceLastSpeech = now - lastSpeechTime;
+      const timeSinceLastAI = now - lastAIResponseTime;
 
-    updateDebugInfo('Starting silence timer (15 seconds)');
-    setSilenceCountdown(15);
-
-    // Start countdown display
-    countdownIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - lastSpeechTimeRef.current;
-      const remaining = Math.max(0, Math.ceil((silenceThreshold - elapsed) / 1000));
+      // Update countdown
+      const remaining = Math.max(0, Math.ceil((silenceThreshold - timeSinceLastSpeech) / 1000));
       setSilenceCountdown(remaining);
-      
-      if (remaining <= 0) {
-        if (countdownIntervalRef.current) {
-          clearInterval(countdownIntervalRef.current);
-          countdownIntervalRef.current = null;
-        }
-      }
-    }, 1000);
 
-    // Set the main silence timer
-    silenceTimerRef.current = setTimeout(() => {
-      updateDebugInfo('Silence threshold reached - triggering AI response');
-      if (isRecording && !isPaused && !isWaitingForResponse && isVoiceServiceAvailable) {
+      // Check if we should trigger AI response
+      if (timeSinceLastSpeech >= silenceThreshold && 
+          timeSinceLastAI >= minTimeBetweenAI && 
+          chunks.length > 0) {
+        
+        updateDebugInfo(`Silence detected: ${timeSinceLastSpeech}ms since last speech`);
         handleSilenceDetected();
-      } else {
-        updateDebugInfo(`Skipped AI response - recording: ${isRecording}, paused: ${isPaused}, waiting: ${isWaitingForResponse}, voice available: ${isVoiceServiceAvailable}`);
       }
-    }, silenceThreshold);
+    }, 1000); // Check every second
+  };
+
+  const stopSilenceMonitoring = () => {
+    if (silenceCheckIntervalRef.current) {
+      clearInterval(silenceCheckIntervalRef.current);
+      silenceCheckIntervalRef.current = null;
+    }
+    setSilenceCountdown(0);
+    updateDebugInfo('Stopped silence monitoring');
   };
 
   const loadVoices = async () => {
@@ -370,7 +359,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         // General encouragement based on progress
         if (chunkCount < 3) {
           return {
-            content: "You're off to a good start! Take your time to think through the problem step by step.",
+            content: "You're off to a good start! Take your time to think through the problem step by step. What's your initial understanding of what we need to solve?",
             type: 'encouragement' as const
           };
         } else if (chunkCount < 6) {
@@ -464,6 +453,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setSessionDuration(0);
     setAiMessages([]);
     setLastAIResponseTime(0);
+    setLastSpeechTime(Date.now()); // Initialize speech time
     setSilenceCountdown(0);
     clearAllTimers();
 
@@ -480,6 +470,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
     // Try to play the initial welcome message
     if (selectedVoice && isVoiceServiceAvailable) {
+      updateDebugInfo('Playing initial welcome message');
       await playAIMessage(initialMessage.content);
     } else {
       updateDebugInfo('Voice service unavailable, skipping initial message playback');
@@ -493,6 +484,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       setSessionDuration(Date.now() - startTimeRef.current);
     }, 1000);
 
+    // Start silence monitoring
+    startSilenceMonitoring();
+
     recorderRef.current.startRecording(
       (result) => {
         if (!result.isFinal) {
@@ -504,15 +498,15 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         setChunks(prev => [...prev, chunk]);
         setCurrentTranscript('');
         
+        // Update last speech time
+        setLastSpeechTime(Date.now());
+        
         // Reset waiting state when user speaks
         if (isWaitingForResponse) {
           setIsWaitingForResponse(false);
           setShowChatInput(false);
           updateDebugInfo('User spoke - resetting waiting state');
         }
-        
-        // Start new silence timer
-        startSilenceTimer();
       },
       (error) => {
         console.error('Recording error:', error);
@@ -527,8 +521,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       updateDebugInfo('Pausing recording');
       recorderRef.current.stopRecording();
       setIsPaused(true);
-      clearAllTimers();
-      setSilenceCountdown(0);
+      stopSilenceMonitoring();
     }
   };
 
@@ -537,10 +530,14 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       updateDebugInfo('Resuming recording');
       startTimeRef.current = Date.now() - sessionDuration;
       setIsPaused(false);
+      setLastSpeechTime(Date.now()); // Reset speech time on resume
       
       intervalRef.current = setInterval(() => {
         setSessionDuration(Date.now() - startTimeRef.current);
       }, 1000);
+
+      // Restart silence monitoring
+      startSilenceMonitoring();
 
       recorderRef.current.startRecording(
         (result) => {
@@ -553,13 +550,14 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           setChunks(prev => [...prev, chunk]);
           setCurrentTranscript('');
           
+          // Update last speech time
+          setLastSpeechTime(Date.now());
+          
           if (isWaitingForResponse) {
             setIsWaitingForResponse(false);
             setShowChatInput(false);
             updateDebugInfo('User spoke after resume - resetting waiting state');
           }
-          
-          startSilenceTimer();
         },
         (error) => {
           console.error('Recording error:', error);
@@ -578,8 +576,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     updateDebugInfo('Stopping recording');
     setIsRecording(false);
     setIsPaused(false);
-    clearAllTimers();
-    setSilenceCountdown(0);
+    stopSilenceMonitoring();
 
     // Analyze the session
     analyzeSession();
@@ -643,6 +640,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setShowChatInput(false);
     setUserInput('');
     setLastAIResponseTime(0);
+    setLastSpeechTime(0);
     setSilenceCountdown(0);
     setDebugInfo('');
     
@@ -741,6 +739,13 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const formatRetryTime = (retryTime: number) => {
+    const remaining = Math.max(0, Math.ceil((retryTime - Date.now()) / 1000));
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   const getStageColor = (stage: string) => {
     switch (stage) {
       case 'understanding': return 'bg-blue-100 text-blue-800';
@@ -763,13 +768,6 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       case 'response': return 'bg-orange-50 border-orange-200 text-orange-800';
       default: return 'bg-gray-50 border-gray-200 text-gray-800';
     }
-  };
-
-  const formatRetryTime = (retryTime: number) => {
-    const remaining = Math.max(0, Math.ceil((retryTime - Date.now()) / 1000));
-    const minutes = Math.floor(remaining / 60);
-    const seconds = remaining % 60;
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
   return (
