@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Menu, X, Brain, Bell, User, LogOut, Search, Mic, Home } from 'lucide-react';
+import { Menu, X, Brain, Bell, User, LogOut, Search, Home } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAppDispatch, useAppSelector } from '../../hooks/reduxHooks';
 import { logout } from '../../features/user/userSlice';
@@ -107,16 +107,6 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
           
           {/* Desktop menu */}
           <div className="hidden sm:ml-6 sm:flex sm:items-center space-x-4">
-            {/* Quick Voice Reasoning Button */}
-            <Button
-              onClick={() => window.location.href = '/voice-reasoning'}
-              className="bg-purple-500 hover:bg-purple-600 text-white"
-              leftIcon={<Mic className="h-4 w-4" />}
-              size="sm"
-            >
-              Voice Reasoning
-            </Button>
-
             <div className="relative">
               <button
                 onClick={() => setShowNotifications(!showNotifications)}
@@ -220,13 +210,6 @@ const Navbar: React.FC<NavbarProps> = ({ onToggleSidebar }) => {
               </div>
 
               <div className="mt-3 space-y-1">
-                <button
-                  onClick={() => window.location.href = '/voice-reasoning'}
-                  className="w-full flex items-center px-4 py-2 text-base font-medium text-purple-600 hover:text-purple-800 hover:bg-purple-50"
-                >
-                  <Mic className="mr-3 h-5 w-5" />
-                  Voice Reasoning
-                </button>
                 <button
                   onClick={handleLogout}
                   className="w-full flex items-center px-4 py-2 text-base font-medium text-gray-500 hover:text-gray-800 hover:bg-gray-100"
