@@ -28,6 +28,13 @@ interface VoiceReasoningSessionProps {
   onStartSSA: (analysis: any) => void;
 }
 
+interface AIMessage {
+  id: string;
+  content: string;
+  timestamp: Date;
+  type: 'response' | 'question' | 'encouragement';
+}
+
 const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   problemTitle,
   problemDescription = '',
@@ -45,11 +52,20 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  
+  // New state for AI interaction
+  const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
+  const [lastChunkTime, setLastChunkTime] = useState<number>(0);
+  const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
+  const [userInput, setUserInput] = useState('');
+  const [showChatInput, setShowChatInput] = useState(false);
 
   const recorderRef = useRef<VoiceReasoningRecorder | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startTimeRef = useRef<number>(0);
+  const silenceThreshold = 15000; // 15 seconds of silence
 
   useEffect(() => {
     recorderRef.current = new VoiceReasoningRecorder();
@@ -59,12 +75,40 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
       }
     };
   }, []);
+
+  // Monitor for silence and trigger AI responses
+  useEffect(() => {
+    if (isRecording && !isPaused && chunks.length > 0) {
+      // Clear existing timer
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+
+      // Set new timer for silence detection
+      const timer = setTimeout(() => {
+        if (isRecording && !isPaused && !isWaitingForResponse) {
+          handleSilenceDetected();
+        }
+      }, silenceThreshold);
+
+      setSilenceTimer(timer);
+    }
+
+    return () => {
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
+    };
+  }, [lastChunkTime, isRecording, isPaused, isWaitingForResponse]);
 
   const loadVoices = async () => {
     try {
@@ -78,6 +122,183 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
+  const handleSilenceDetected = async () => {
+    if (chunks.length === 0) return;
+
+    const lastChunk = chunks[chunks.length - 1];
+    const aiResponse = generateAIResponse(lastChunk, chunks);
+    
+    const aiMessage: AIMessage = {
+      id: `ai_${Date.now()}`,
+      content: aiResponse.content,
+      timestamp: new Date(),
+      type: aiResponse.type
+    };
+
+    setAiMessages(prev => [...prev, aiMessage]);
+    setIsWaitingForResponse(true);
+    setShowChatInput(true);
+
+    // Play the AI response if voice is available
+    if (selectedVoice) {
+      try {
+        const audioUrl = await generateSpeech(aiResponse.content, selectedVoice.voice_id);
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => {
+          setIsPlayingAudio(false);
+        };
+        
+        setIsPlayingAudio(true);
+        await audioRef.current.play();
+      } catch (error) {
+        console.error('Error playing AI response:', error);
+        setIsPlayingAudio(false);
+      }
+    }
+  };
+
+  const generateAIResponse = (lastChunk: SpeechChunk, allChunks: SpeechChunk[]) => {
+    const transcript = lastChunk.transcript.toLowerCase();
+    const stage = lastChunk.stage || 'general';
+    const chunkCount = allChunks.length;
+
+    // Check if user is asking a question
+    if (transcript.includes('?') || transcript.includes('how') || transcript.includes('what') || transcript.includes('why')) {
+      return {
+        content: generateQuestionResponse(transcript, stage),
+        type: 'response' as const
+      };
+    }
+
+    // Generate contextual questions based on stage and progress
+    if (stage === 'understanding') {
+      return {
+        content: "I notice you're working on understanding the problem. What specific part of the requirements seems most challenging to you?",
+        type: 'question' as const
+      };
+    } else if (stage === 'simulation') {
+      return {
+        content: "You're walking through an example - that's great! Can you explain what happens in the next step of your approach?",
+        type: 'question' as const
+      };
+    } else if (stage === 'pattern') {
+      return {
+        content: "I can see you're thinking about algorithmic patterns. What similar problems have you solved that might relate to this one?",
+        type: 'question' as const
+      };
+    } else if (stage === 'validation') {
+      return {
+        content: "You're validating your approach - excellent! What edge cases are you considering?",
+        type: 'question' as const
+      };
+    } else if (stage === 'solution') {
+      return {
+        content: "You're working on the solution implementation. Are there any optimizations you're thinking about?",
+        type: 'question' as const
+      };
+    }
+
+    // General encouragement based on progress
+    if (chunkCount < 3) {
+      return {
+        content: "You're off to a good start! Take your time to think through the problem step by step.",
+        type: 'encouragement' as const
+      };
+    } else if (chunkCount < 6) {
+      return {
+        content: "I can see you're making progress. What's your current thinking about the best approach to solve this?",
+        type: 'question' as const
+      };
+    } else {
+      return {
+        content: "You've been working through this thoughtfully. Is there anything specific you'd like to clarify or explore further?",
+        type: 'question' as const
+      };
+    }
+  };
+
+  const generateQuestionResponse = (transcript: string, stage: string) => {
+    if (transcript.includes('time complexity') || transcript.includes('complexity')) {
+      return "Great question about complexity! Think about how many times you're iterating through your data and what operations you're performing in each iteration.";
+    } else if (transcript.includes('approach') || transcript.includes('algorithm')) {
+      return "For choosing the right approach, consider the problem constraints and what data structures might help you access or organize the information efficiently.";
+    } else if (transcript.includes('edge case') || transcript.includes('edge')) {
+      return "Good thinking about edge cases! Consider scenarios like empty inputs, single elements, very large inputs, or boundary conditions.";
+    } else if (transcript.includes('stuck') || transcript.includes('confused')) {
+      return "It's normal to feel stuck sometimes. Try breaking the problem into smaller parts or walking through a simple example step by step.";
+    } else {
+      return "That's a thoughtful question! Take a moment to think about it, and remember that working through problems systematically often reveals the answer.";
+    }
+  };
+
+  const handleUserResponse = async () => {
+    if (!userInput.trim()) return;
+
+    // Add user message to chat
+    const userMessage: AIMessage = {
+      id: `user_${Date.now()}`,
+      content: userInput,
+      timestamp: new Date(),
+      type: 'response'
+    };
+
+    setAiMessages(prev => [...prev, userMessage]);
+
+    // Generate AI follow-up
+    const followUp = generateFollowUpResponse(userInput);
+    const aiMessage: AIMessage = {
+      id: `ai_${Date.now() + 1}`,
+      content: followUp,
+      timestamp: new Date(),
+      type: 'response'
+    };
+
+    setAiMessages(prev => [...prev, aiMessage]);
+
+    // Play follow-up if voice is available
+    if (selectedVoice) {
+      try {
+        const audioUrl = await generateSpeech(followUp, selectedVoice.voice_id);
+        if (audioRef.current) {
+          audioRef.current.pause();
+        }
+        
+        audioRef.current = new Audio(audioUrl);
+        audioRef.current.onended = () => {
+          setIsPlayingAudio(false);
+        };
+        
+        setIsPlayingAudio(true);
+        await audioRef.current.play();
+      } catch (error) {
+        console.error('Error playing AI follow-up:', error);
+        setIsPlayingAudio(false);
+      }
+    }
+
+    setUserInput('');
+    setIsWaitingForResponse(false);
+    setShowChatInput(false);
+  };
+
+  const generateFollowUpResponse = (userResponse: string) => {
+    const response = userResponse.toLowerCase();
+    
+    if (response.includes('yes') || response.includes('understand') || response.includes('clear')) {
+      return "Excellent! Keep going with your reasoning. I'm here if you need any guidance.";
+    } else if (response.includes('no') || response.includes('confused') || response.includes('stuck')) {
+      return "No worries! Try approaching it from a different angle. Sometimes it helps to think about what the problem is really asking for.";
+    } else if (response.includes('help') || response.includes('hint')) {
+      return "I'm here to guide you, but I want you to discover the solution yourself. What's the first step you think you should take?";
+    } else {
+      return "I see what you're thinking. Continue with that line of reasoning and see where it leads you.";
+    }
+  };
+
   const startRecording = () => {
     if (!recorderRef.current) return;
 
@@ -87,6 +308,8 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setCurrentTranscript('');
     setChunks([]);
     setSessionDuration(0);
+    setAiMessages([]);
+    setLastChunkTime(Date.now());
 
     // Start duration timer
     intervalRef.current = setInterval(() => {
@@ -102,6 +325,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       (chunk) => {
         setChunks(prev => [...prev, chunk]);
         setCurrentTranscript('');
+        setLastChunkTime(Date.now());
+        setIsWaitingForResponse(false);
+        setShowChatInput(false);
       },
       (error) => {
         console.error('Recording error:', error);
@@ -117,6 +343,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
       }
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+      }
     }
   };
 
@@ -124,6 +353,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     if (recorderRef.current && isPaused) {
       startTimeRef.current = Date.now() - sessionDuration;
       setIsPaused(false);
+      setLastChunkTime(Date.now());
       
       intervalRef.current = setInterval(() => {
         setSessionDuration(Date.now() - startTimeRef.current);
@@ -138,6 +368,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         (chunk) => {
           setChunks(prev => [...prev, chunk]);
           setCurrentTranscript('');
+          setLastChunkTime(Date.now());
+          setIsWaitingForResponse(false);
+          setShowChatInput(false);
         },
         (error) => {
           console.error('Recording error:', error);
@@ -157,6 +390,10 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+    }
+
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
     }
 
     // Analyze the session
@@ -197,9 +434,17 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setSessionDuration(0);
     setAnalysis(null);
     setIsAnalyzing(false);
+    setAiMessages([]);
+    setIsWaitingForResponse(false);
+    setShowChatInput(false);
+    setUserInput('');
     
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
+    }
+    
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
     }
     
     if (recorderRef.current) {
@@ -288,6 +533,15 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
+  const getMessageTypeColor = (type: string) => {
+    switch (type) {
+      case 'question': return 'bg-blue-50 border-blue-200 text-blue-800';
+      case 'encouragement': return 'bg-green-50 border-green-200 text-green-800';
+      case 'response': return 'bg-purple-50 border-purple-200 text-purple-800';
+      default: return 'bg-gray-50 border-gray-200 text-gray-800';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Session Header */}
@@ -298,7 +552,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
               <Brain className="h-6 w-6" />
             </div>
             <div>
-              <h2 className="text-xl font-bold">Voice Reasoning Session</h2>
+              <h2 className="text-xl font-bold">Interactive Voice Reasoning</h2>
               <p className="text-purple-100">Think out loud while solving: {problemTitle}</p>
             </div>
           </div>
@@ -402,10 +656,63 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 <MessageSquare className="h-4 w-4 mr-1" />
                 <span>{chunks.length} chunks captured</span>
               </div>
+              {aiMessages.length > 0 && (
+                <div className="flex items-center">
+                  <Brain className="h-4 w-4 mr-1 text-purple-600" />
+                  <span>{aiMessages.length} AI interactions</span>
+                </div>
+              )}
             </div>
           )}
         </div>
       </Card>
+
+      {/* AI Interaction Panel */}
+      {aiMessages.length > 0 && (
+        <Card title="AI Coaching Conversation">
+          <div className="space-y-4 max-h-60 overflow-y-auto mb-4">
+            {aiMessages.map((message) => (
+              <div
+                key={message.id}
+                className={`p-3 rounded-lg border ${getMessageTypeColor(message.type)}`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs font-medium">
+                    {message.id.startsWith('ai_') ? '🤖 AI Coach' : '👤 You'}
+                  </span>
+                  <span className="text-xs opacity-75">
+                    {message.timestamp.toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-sm">{message.content}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Chat Input */}
+          {showChatInput && (
+            <div className="border-t pt-4">
+              <div className="flex space-x-2">
+                <input
+                  type="text"
+                  value={userInput}
+                  onChange={(e) => setUserInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleUserResponse()}
+                  placeholder="Type your response to the AI coach..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <Button
+                  onClick={handleUserResponse}
+                  disabled={!userInput.trim()}
+                  leftIcon={<MessageSquare className="h-4 w-4" />}
+                >
+                  Send
+                </Button>
+              </div>
+            </div>
+          )}
+        </Card>
+      )}
 
       {/* Captured Chunks */}
       {chunks.length > 0 && (
@@ -579,6 +886,33 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* AI Interaction Summary */}
+            {aiMessages.length > 0 && (
+              <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
+                <h4 className="font-medium text-purple-900 mb-3">AI Interaction Summary</h4>
+                <div className="grid grid-cols-3 gap-4 text-sm">
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">
+                      {aiMessages.filter(m => m.type === 'question').length}
+                    </div>
+                    <div className="text-purple-700">Questions Asked</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">
+                      {aiMessages.filter(m => m.id.startsWith('user_')).length}
+                    </div>
+                    <div className="text-purple-700">Your Responses</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-lg font-bold text-purple-600">
+                      {aiMessages.filter(m => m.type === 'encouragement').length}
+                    </div>
+                    <div className="text-purple-700">Encouragements</div>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Next Steps */}
             {analysis.nextSteps && analysis.nextSteps.length > 0 && (
