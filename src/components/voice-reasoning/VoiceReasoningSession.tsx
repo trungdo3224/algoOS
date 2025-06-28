@@ -14,12 +14,15 @@ import {
   ArrowRight,
   Lightbulb,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  AlertCircle,
+  Wifi,
+  WifiOff
 } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { VoiceReasoningRecorder, SpeechChunk, analyzeReasoningPatterns } from '../../services/speechRecognition';
-import { generateSpeech, getAvailableVoices, Voice } from '../../services/elevenlabs';
+import { generateSpeech, getAvailableVoices, Voice, checkApiUsage } from '../../services/elevenlabs';
 
 interface VoiceReasoningSessionProps {
   problemTitle: string;
@@ -34,6 +37,12 @@ interface AIMessage {
   timestamp: Date;
   type: 'response' | 'question' | 'encouragement';
   isUser?: boolean;
+}
+
+interface VoiceError {
+  type: 'rate_limit' | 'api_error' | 'network_error' | 'config_error';
+  message: string;
+  retryAfter?: number;
 }
 
 const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
@@ -61,6 +70,12 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const [showChatInput, setShowChatInput] = useState(false);
   const [lastAIResponseTime, setLastAIResponseTime] = useState<number>(0);
   
+  // Voice service state
+  const [voiceError, setVoiceError] = useState<VoiceError | null>(null);
+  const [isVoiceServiceAvailable, setIsVoiceServiceAvailable] = useState(true);
+  const [apiUsage, setApiUsage] = useState<{ charactersUsed?: number; charactersLimit?: number } | null>(null);
+  const [rateLimitRetryTime, setRateLimitRetryTime] = useState<number>(0);
+  
   // Debug state
   const [debugInfo, setDebugInfo] = useState<string>('');
   const [silenceCountdown, setSilenceCountdown] = useState<number>(0);
@@ -72,6 +87,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSpeechTimeRef = useRef<number>(0);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const rateLimitTimerRef = useRef<NodeJS.Timeout | null>(null);
   
   const silenceThreshold = 15000; // 15 seconds of silence
   const minTimeBetweenAI = 30000; // 30 seconds minimum between AI responses
@@ -79,6 +95,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   useEffect(() => {
     recorderRef.current = new VoiceReasoningRecorder();
     loadVoices();
+    checkApiUsageStatus();
     
     return () => {
       clearAllTimers();
@@ -102,12 +119,61 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       clearInterval(countdownIntervalRef.current);
       countdownIntervalRef.current = null;
     }
+    if (rateLimitTimerRef.current) {
+      clearTimeout(rateLimitTimerRef.current);
+      rateLimitTimerRef.current = null;
+    }
   };
 
   const updateDebugInfo = (info: string) => {
     const timestamp = new Date().toLocaleTimeString();
     setDebugInfo(`[${timestamp}] ${info}`);
     console.log(`[Voice Debug] ${info}`);
+  };
+
+  const checkApiUsageStatus = async () => {
+    try {
+      const usage = await checkApiUsage();
+      setApiUsage(usage);
+      updateDebugInfo(`API usage checked: ${usage ? 'Available' : 'Not available'}`);
+    } catch (error) {
+      updateDebugInfo('Could not check API usage');
+    }
+  };
+
+  const handleVoiceError = (error: any) => {
+    const errorType = error.type || 'api_error';
+    const retryAfter = error.retryAfter || 60000;
+
+    const voiceError: VoiceError = {
+      type: errorType,
+      message: error.message,
+      retryAfter: errorType === 'rate_limit' ? retryAfter : undefined
+    };
+
+    setVoiceError(voiceError);
+    setIsVoiceServiceAvailable(false);
+    updateDebugInfo(`Voice error: ${errorType} - ${error.message}`);
+
+    if (errorType === 'rate_limit') {
+      setRateLimitRetryTime(Date.now() + retryAfter);
+      updateDebugInfo(`Rate limit hit, retry after ${retryAfter}ms`);
+      
+      // Set timer to clear rate limit error
+      rateLimitTimerRef.current = setTimeout(() => {
+        setVoiceError(null);
+        setIsVoiceServiceAvailable(true);
+        setRateLimitRetryTime(0);
+        updateDebugInfo('Rate limit period expired, voice service restored');
+      }, retryAfter);
+    } else {
+      // For other errors, allow retry after 30 seconds
+      setTimeout(() => {
+        setVoiceError(null);
+        setIsVoiceServiceAvailable(true);
+        updateDebugInfo('Voice service error cleared, retrying available');
+      }, 30000);
+    }
   };
 
   const startSilenceTimer = () => {
@@ -126,6 +192,12 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     const timeSinceLastAI = now - lastAIResponseTime;
     if (timeSinceLastAI < minTimeBetweenAI) {
       updateDebugInfo(`Too soon for AI response (${Math.round((minTimeBetweenAI - timeSinceLastAI) / 1000)}s remaining)`);
+      return;
+    }
+
+    // Don't start timer if voice service is unavailable
+    if (!isVoiceServiceAvailable) {
+      updateDebugInfo('Voice service unavailable, skipping AI response timer');
       return;
     }
 
@@ -149,29 +221,34 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     // Set the main silence timer
     silenceTimerRef.current = setTimeout(() => {
       updateDebugInfo('Silence threshold reached - triggering AI response');
-      if (isRecording && !isPaused && !isWaitingForResponse) {
+      if (isRecording && !isPaused && !isWaitingForResponse && isVoiceServiceAvailable) {
         handleSilenceDetected();
       } else {
-        updateDebugInfo(`Skipped AI response - recording: ${isRecording}, paused: ${isPaused}, waiting: ${isWaitingForResponse}`);
+        updateDebugInfo(`Skipped AI response - recording: ${isRecording}, paused: ${isPaused}, waiting: ${isWaitingForResponse}, voice available: ${isVoiceServiceAvailable}`);
       }
     }, silenceThreshold);
   };
 
   const loadVoices = async () => {
     try {
+      updateDebugInfo('Loading voices...');
       const voices = await getAvailableVoices();
       setAvailableVoices(voices);
       if (voices.length > 0) {
         setSelectedVoice(voices[0]);
       }
+      setIsVoiceServiceAvailable(true);
+      setVoiceError(null);
+      updateDebugInfo(`Loaded ${voices.length} voices successfully`);
     } catch (error) {
       console.error('Failed to load voices:', error);
+      handleVoiceError(error);
     }
   };
 
   const handleSilenceDetected = async () => {
-    if (chunks.length === 0 || isWaitingForResponse) {
-      updateDebugInfo('Skipped AI response - no chunks or already waiting');
+    if (chunks.length === 0 || isWaitingForResponse || !isVoiceServiceAvailable) {
+      updateDebugInfo('Skipped AI response - no chunks, already waiting, or voice unavailable');
       return;
     }
 
@@ -196,13 +273,19 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
     updateDebugInfo(`AI message generated: ${aiResponse.type}`);
 
-    // Play the AI response using ElevenLabs
+    // Try to play the AI response
     await playAIMessage(aiResponse.content);
   };
 
   const playAIMessage = async (message: string) => {
     if (!selectedVoice) {
       updateDebugInfo('No voice selected for AI message');
+      return;
+    }
+
+    if (!isVoiceServiceAvailable) {
+      updateDebugInfo('Voice service unavailable, skipping audio playback');
+      // Still show the message in chat
       return;
     }
 
@@ -230,8 +313,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       updateDebugInfo('AI message started playing');
     } catch (error) {
       console.error('Error playing AI response:', error);
-      updateDebugInfo(`Error playing AI message: ${error}`);
+      handleVoiceError(error);
       setIsPlayingAudio(false);
+      updateDebugInfo(`Error playing AI message: ${error}`);
     }
   };
 
@@ -345,7 +429,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
     setAiMessages(prev => [...prev, aiMessage]);
 
-    // Play follow-up
+    // Try to play follow-up
     await playAIMessage(followUp);
 
     setUserInput('');
@@ -394,9 +478,11 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
     setAiMessages([initialMessage]);
 
-    // Play the initial welcome message
-    if (selectedVoice) {
+    // Try to play the initial welcome message
+    if (selectedVoice && isVoiceServiceAvailable) {
       await playAIMessage(initialMessage.content);
+    } else {
+      updateDebugInfo('Voice service unavailable, skipping initial message playback');
     }
 
     // Set the initial AI response time to now
@@ -567,8 +653,21 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
+  const retryVoiceService = async () => {
+    updateDebugInfo('Retrying voice service...');
+    setVoiceError(null);
+    setIsVoiceServiceAvailable(true);
+    await loadVoices();
+    await checkApiUsageStatus();
+  };
+
   const playAnalysisFeedback = async () => {
-    if (!selectedVoice || !analysis) return;
+    if (!selectedVoice || !analysis || !isVoiceServiceAvailable) {
+      if (!isVoiceServiceAvailable) {
+        updateDebugInfo('Voice service unavailable for feedback playback');
+      }
+      return;
+    }
 
     try {
       setIsPlayingAudio(true);
@@ -590,6 +689,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       await audioRef.current.play();
     } catch (error) {
       console.error('Error playing feedback:', error);
+      handleVoiceError(error);
       setIsPlayingAudio(false);
     }
   };
@@ -665,6 +765,13 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
+  const formatRetryTime = (retryTime: number) => {
+    const remaining = Math.max(0, Math.ceil((retryTime - Date.now()) / 1000));
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="space-y-6">
       {/* Session Header */}
@@ -681,10 +788,78 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           </div>
           <div className="text-right">
             <div className="text-2xl font-bold">{formatDuration(sessionDuration)}</div>
-            <div className="text-sm text-purple-100">Session Duration</div>
+            <div className="text-sm text-purple-100 flex items-center">
+              {isVoiceServiceAvailable ? (
+                <>
+                  <Wifi className="h-4 w-4 mr-1" />
+                  Voice Available
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-4 w-4 mr-1" />
+                  Voice Limited
+                </>
+              )}
+            </div>
           </div>
         </div>
       </Card>
+
+      {/* Voice Service Status */}
+      {voiceError && (
+        <Card className={`border-2 ${voiceError.type === 'rate_limit' ? 'border-orange-300 bg-orange-50' : 'border-red-300 bg-red-50'}`}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start space-x-3">
+              <AlertCircle className={`h-5 w-5 mt-0.5 ${voiceError.type === 'rate_limit' ? 'text-orange-600' : 'text-red-600'}`} />
+              <div>
+                <h3 className={`font-medium ${voiceError.type === 'rate_limit' ? 'text-orange-900' : 'text-red-900'}`}>
+                  {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Service Error'}
+                </h3>
+                <p className={`text-sm ${voiceError.type === 'rate_limit' ? 'text-orange-800' : 'text-red-800'}`}>
+                  {voiceError.message}
+                </p>
+                {voiceError.type === 'rate_limit' && rateLimitRetryTime > 0 && (
+                  <p className="text-sm text-orange-700 mt-1">
+                    Voice will be available again in: {formatRetryTime(rateLimitRetryTime)}
+                  </p>
+                )}
+                {voiceError.type === 'rate_limit' && (
+                  <p className="text-sm text-orange-700 mt-1">
+                    💡 You can continue the session - text responses will still work!
+                  </p>
+                )}
+              </div>
+            </div>
+            <Button
+              onClick={retryVoiceService}
+              variant="outline"
+              size="sm"
+              className="text-xs"
+            >
+              Retry
+            </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* API Usage Status */}
+      {apiUsage && (
+        <Card className="bg-blue-50 border-blue-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Volume2 className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-medium text-blue-900">ElevenLabs Usage</span>
+            </div>
+            <div className="text-sm text-blue-800">
+              {apiUsage.charactersUsed !== undefined && apiUsage.charactersLimit !== undefined ? (
+                `${apiUsage.charactersUsed.toLocaleString()} / ${apiUsage.charactersLimit.toLocaleString()} characters`
+              ) : (
+                'Usage data available'
+              )}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Debug Panel */}
       {(isRecording || isPaused || debugInfo) && (
@@ -703,7 +878,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           <div className="text-xs text-gray-600 font-mono bg-white p-2 rounded border">
             {debugInfo || 'No debug information yet...'}
           </div>
-          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+          <div className="mt-2 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
             <div className="bg-white p-2 rounded">
               <span className="font-medium">Recording:</span> {isRecording ? '✅' : '❌'}
             </div>
@@ -712,6 +887,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
             </div>
             <div className="bg-white p-2 rounded">
               <span className="font-medium">Waiting:</span> {isWaitingForResponse ? '✅' : '❌'}
+            </div>
+            <div className="bg-white p-2 rounded">
+              <span className="font-medium">Voice:</span> {isVoiceServiceAvailable ? '✅' : '❌'}
             </div>
             <div className="bg-white p-2 rounded">
               <span className="font-medium">Chunks:</span> {chunks.length}
@@ -852,10 +1030,10 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                   <button
                     onClick={() => playAIMessage(message.content)}
                     className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center"
-                    disabled={isPlayingAudio}
+                    disabled={isPlayingAudio || !isVoiceServiceAvailable}
                   >
                     <Volume2 className="h-3 w-3 mr-1" />
-                    {isPlayingAudio ? 'Playing...' : 'Play Again'}
+                    {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Play Again' : 'Voice Unavailable'}
                   </button>
                 )}
               </div>
@@ -965,11 +1143,11 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
               <div className="flex items-center space-x-3">
                 <Button
                   onClick={playAnalysisFeedback}
-                  disabled={isPlayingAudio || !selectedVoice}
+                  disabled={isPlayingAudio || !selectedVoice || !isVoiceServiceAvailable}
                   leftIcon={<Volume2 className="h-4 w-4" />}
                   className="bg-purple-500 hover:bg-purple-600 text-white"
                 >
-                  {isPlayingAudio ? 'Playing...' : 'Play AI Feedback'}
+                  {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Play AI Feedback' : 'Voice Unavailable'}
                 </Button>
                 
                 {isPlayingAudio && (
@@ -979,6 +1157,16 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                     leftIcon={<VolumeX className="h-4 w-4" />}
                   >
                     Stop Audio
+                  </Button>
+                )}
+                
+                {!isVoiceServiceAvailable && (
+                  <Button
+                    onClick={retryVoiceService}
+                    variant="outline"
+                    leftIcon={<RotateCcw className="h-4 w-4" />}
+                  >
+                    Retry Voice
                   </Button>
                 )}
               </div>
