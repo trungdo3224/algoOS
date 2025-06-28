@@ -368,7 +368,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
-  const startRecording = () => {
+  const startRecording = async () => {
     if (!recorderRef.current) return;
 
     updateDebugInfo('Starting voice reasoning session...');
@@ -382,6 +382,25 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setLastAIResponseTime(0);
     setSilenceCountdown(0);
     clearAllTimers();
+
+    // Create and add initial AI welcome message
+    const initialMessage: AIMessage = {
+      id: `ai_initial_${Date.now()}`,
+      content: `Hello! I'm your AI reasoning coach, and I'm excited to work with you on "${problemTitle}". I'll be listening as you think through this problem and will offer guidance when needed. Feel free to speak your thoughts out loud - I'm here to help you discover the solution together. Let's begin!`,
+      timestamp: new Date(),
+      type: 'encouragement',
+      isUser: false
+    };
+
+    setAiMessages([initialMessage]);
+
+    // Play the initial welcome message
+    if (selectedVoice) {
+      await playAIMessage(initialMessage.content);
+    }
+
+    // Set the initial AI response time to now
+    setLastAIResponseTime(Date.now());
 
     // Start duration timer
     intervalRef.current = setInterval(() => {
