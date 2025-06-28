@@ -56,30 +56,32 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   
   // AI interaction state
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
-  const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
-  const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [showChatInput, setShowChatInput] = useState(false);
   const [lastAIResponseTime, setLastAIResponseTime] = useState<number>(0);
+  
+  // Debug state
+  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [silenceCountdown, setSilenceCountdown] = useState<number>(0);
 
   const recorderRef = useRef<VoiceReasoningRecorder | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const startTimeRef = useRef<number>(0);
+  const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSpeechTimeRef = useRef<number>(0);
+  const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  
   const silenceThreshold = 15000; // 15 seconds of silence
+  const minTimeBetweenAI = 30000; // 30 seconds minimum between AI responses
 
   useEffect(() => {
     recorderRef.current = new VoiceReasoningRecorder();
     loadVoices();
     
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
-      }
+      clearAllTimers();
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
@@ -87,33 +89,73 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     };
   }, []);
 
-  // Monitor for silence and trigger AI responses
-  useEffect(() => {
-    if (isRecording && !isPaused && chunks.length > 0 && !isWaitingForResponse) {
-      // Clear existing timer
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
-      }
+  const clearAllTimers = () => {
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
+      countdownIntervalRef.current = null;
+    }
+  };
 
-      // Only set timer if enough time has passed since last AI response
-      const timeSinceLastAI = Date.now() - lastAIResponseTime;
-      if (timeSinceLastAI > 30000) { // At least 30 seconds between AI interventions
-        const timer = setTimeout(() => {
-          if (isRecording && !isPaused && !isWaitingForResponse) {
-            handleSilenceDetected();
-          }
-        }, silenceThreshold);
+  const updateDebugInfo = (info: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setDebugInfo(`[${timestamp}] ${info}`);
+    console.log(`[Voice Debug] ${info}`);
+  };
 
-        setSilenceTimer(timer);
-      }
+  const startSilenceTimer = () => {
+    // Clear existing timers
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+    }
+    if (countdownIntervalRef.current) {
+      clearInterval(countdownIntervalRef.current);
     }
 
-    return () => {
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
+    const now = Date.now();
+    lastSpeechTimeRef.current = now;
+    
+    // Check if enough time has passed since last AI response
+    const timeSinceLastAI = now - lastAIResponseTime;
+    if (timeSinceLastAI < minTimeBetweenAI) {
+      updateDebugInfo(`Too soon for AI response (${Math.round((minTimeBetweenAI - timeSinceLastAI) / 1000)}s remaining)`);
+      return;
+    }
+
+    updateDebugInfo('Starting silence timer (15 seconds)');
+    setSilenceCountdown(15);
+
+    // Start countdown display
+    countdownIntervalRef.current = setInterval(() => {
+      const elapsed = Date.now() - lastSpeechTimeRef.current;
+      const remaining = Math.max(0, Math.ceil((silenceThreshold - elapsed) / 1000));
+      setSilenceCountdown(remaining);
+      
+      if (remaining <= 0) {
+        if (countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
+          countdownIntervalRef.current = null;
+        }
       }
-    };
-  }, [lastSpeechTime, isRecording, isPaused, isWaitingForResponse, chunks.length]);
+    }, 1000);
+
+    // Set the main silence timer
+    silenceTimerRef.current = setTimeout(() => {
+      updateDebugInfo('Silence threshold reached - triggering AI response');
+      if (isRecording && !isPaused && !isWaitingForResponse) {
+        handleSilenceDetected();
+      } else {
+        updateDebugInfo(`Skipped AI response - recording: ${isRecording}, paused: ${isPaused}, waiting: ${isWaitingForResponse}`);
+      }
+    }, silenceThreshold);
+  };
 
   const loadVoices = async () => {
     try {
@@ -128,9 +170,12 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   };
 
   const handleSilenceDetected = async () => {
-    if (chunks.length === 0 || isWaitingForResponse) return;
+    if (chunks.length === 0 || isWaitingForResponse) {
+      updateDebugInfo('Skipped AI response - no chunks or already waiting');
+      return;
+    }
 
-    console.log('Silence detected, generating AI response...');
+    updateDebugInfo('Generating AI response for silence...');
     
     const lastChunk = chunks[chunks.length - 1];
     const aiResponse = generateAIResponse(lastChunk, chunks);
@@ -147,6 +192,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setIsWaitingForResponse(true);
     setShowChatInput(true);
     setLastAIResponseTime(Date.now());
+    setSilenceCountdown(0);
+
+    updateDebugInfo(`AI message generated: ${aiResponse.type}`);
 
     // Play the AI response using ElevenLabs
     await playAIMessage(aiResponse.content);
@@ -154,12 +202,12 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
   const playAIMessage = async (message: string) => {
     if (!selectedVoice) {
-      console.log('No voice selected for AI message');
+      updateDebugInfo('No voice selected for AI message');
       return;
     }
 
     try {
-      console.log('Playing AI message with ElevenLabs...');
+      updateDebugInfo('Playing AI message with ElevenLabs...');
       setIsPlayingAudio(true);
       
       const audioUrl = await generateSpeech(message, selectedVoice.voice_id);
@@ -171,17 +219,18 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       audioRef.current = new Audio(audioUrl);
       audioRef.current.onended = () => {
         setIsPlayingAudio(false);
-        console.log('AI message playback finished');
+        updateDebugInfo('AI message playback finished');
       };
       audioRef.current.onerror = () => {
         setIsPlayingAudio(false);
-        console.error('Error playing AI message');
+        updateDebugInfo('Error playing AI message');
       };
       
       await audioRef.current.play();
-      console.log('AI message started playing');
+      updateDebugInfo('AI message started playing');
     } catch (error) {
       console.error('Error playing AI response:', error);
+      updateDebugInfo(`Error playing AI message: ${error}`);
       setIsPlayingAudio(false);
     }
   };
@@ -191,7 +240,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     const stage = lastChunk.stage || 'general';
     const chunkCount = allChunks.length;
 
-    console.log(`Generating AI response for stage: ${stage}, chunk count: ${chunkCount}`);
+    updateDebugInfo(`Generating AI response for stage: ${stage}, chunk count: ${chunkCount}`);
 
     // Check if user is asking a question
     if (transcript.includes('?') || 
@@ -271,7 +320,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const handleUserResponse = async () => {
     if (!userInput.trim()) return;
 
-    console.log('User responded:', userInput);
+    updateDebugInfo(`User responded: ${userInput}`);
 
     // Add user message to chat
     const userMessage: AIMessage = {
@@ -322,7 +371,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const startRecording = () => {
     if (!recorderRef.current) return;
 
-    console.log('Starting voice reasoning session...');
+    updateDebugInfo('Starting voice reasoning session...');
     startTimeRef.current = Date.now();
     setIsRecording(true);
     setIsPaused(false);
@@ -330,8 +379,9 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setChunks([]);
     setSessionDuration(0);
     setAiMessages([]);
-    setLastSpeechTime(Date.now());
     setLastAIResponseTime(0);
+    setSilenceCountdown(0);
+    clearAllTimers();
 
     // Start duration timer
     intervalRef.current = setInterval(() => {
@@ -345,19 +395,23 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         }
       },
       (chunk) => {
-        console.log('New speech chunk received:', chunk.transcript);
+        updateDebugInfo(`New speech chunk received: "${chunk.transcript.substring(0, 50)}..."`);
         setChunks(prev => [...prev, chunk]);
         setCurrentTranscript('');
-        setLastSpeechTime(Date.now());
         
         // Reset waiting state when user speaks
         if (isWaitingForResponse) {
           setIsWaitingForResponse(false);
           setShowChatInput(false);
+          updateDebugInfo('User spoke - resetting waiting state');
         }
+        
+        // Start new silence timer
+        startSilenceTimer();
       },
       (error) => {
         console.error('Recording error:', error);
+        updateDebugInfo(`Recording error: ${error}`);
         stopRecording();
       }
     );
@@ -365,22 +419,19 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
   const pauseRecording = () => {
     if (recorderRef.current && isRecording) {
+      updateDebugInfo('Pausing recording');
       recorderRef.current.stopRecording();
       setIsPaused(true);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      if (silenceTimer) {
-        clearTimeout(silenceTimer);
-      }
+      clearAllTimers();
+      setSilenceCountdown(0);
     }
   };
 
   const resumeRecording = () => {
     if (recorderRef.current && isPaused) {
+      updateDebugInfo('Resuming recording');
       startTimeRef.current = Date.now() - sessionDuration;
       setIsPaused(false);
-      setLastSpeechTime(Date.now());
       
       intervalRef.current = setInterval(() => {
         setSessionDuration(Date.now() - startTimeRef.current);
@@ -393,17 +444,21 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           }
         },
         (chunk) => {
+          updateDebugInfo(`New speech chunk (resumed): "${chunk.transcript.substring(0, 50)}..."`);
           setChunks(prev => [...prev, chunk]);
           setCurrentTranscript('');
-          setLastSpeechTime(Date.now());
           
           if (isWaitingForResponse) {
             setIsWaitingForResponse(false);
             setShowChatInput(false);
+            updateDebugInfo('User spoke after resume - resetting waiting state');
           }
+          
+          startSilenceTimer();
         },
         (error) => {
           console.error('Recording error:', error);
+          updateDebugInfo(`Recording error on resume: ${error}`);
           stopRecording();
         }
       );
@@ -415,16 +470,11 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       recorderRef.current.stopRecording();
     }
     
+    updateDebugInfo('Stopping recording');
     setIsRecording(false);
     setIsPaused(false);
-    
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-    }
+    clearAllTimers();
+    setSilenceCountdown(0);
 
     // Analyze the session
     analyzeSession();
@@ -432,6 +482,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
   const analyzeSession = async () => {
     setIsAnalyzing(true);
+    updateDebugInfo('Starting session analysis');
     
     try {
       // Use Gemini-powered analysis
@@ -450,8 +501,10 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       };
       
       setAnalysis(sessionAnalysis);
+      updateDebugInfo('Session analysis completed');
     } catch (error) {
       console.error('Error analyzing session:', error);
+      updateDebugInfo(`Analysis error: ${error}`);
       // Fallback analysis
       setAnalysis({
         strengths: ['Completed the reasoning session'],
@@ -472,6 +525,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   };
 
   const resetSession = () => {
+    updateDebugInfo('Resetting session');
     setIsRecording(false);
     setIsPaused(false);
     setCurrentTranscript('');
@@ -483,16 +537,11 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setIsWaitingForResponse(false);
     setShowChatInput(false);
     setUserInput('');
-    setLastSpeechTime(0);
     setLastAIResponseTime(0);
+    setSilenceCountdown(0);
+    setDebugInfo('');
     
-    if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-    }
-    
-    if (silenceTimer) {
-      clearTimeout(silenceTimer);
-    }
+    clearAllTimers();
     
     if (recorderRef.current) {
       recorderRef.current.stopRecording();
@@ -617,6 +666,40 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           </div>
         </div>
       </Card>
+
+      {/* Debug Panel */}
+      {(isRecording || isPaused || debugInfo) && (
+        <Card className="bg-gray-50 border-gray-300">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-700">🔧 Debug Information</h3>
+            {silenceCountdown > 0 && (
+              <div className="flex items-center space-x-2">
+                <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
+                <span className="text-sm font-medium text-orange-600">
+                  AI response in {silenceCountdown}s
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="text-xs text-gray-600 font-mono bg-white p-2 rounded border">
+            {debugInfo || 'No debug information yet...'}
+          </div>
+          <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+            <div className="bg-white p-2 rounded">
+              <span className="font-medium">Recording:</span> {isRecording ? '✅' : '❌'}
+            </div>
+            <div className="bg-white p-2 rounded">
+              <span className="font-medium">Paused:</span> {isPaused ? '✅' : '❌'}
+            </div>
+            <div className="bg-white p-2 rounded">
+              <span className="font-medium">Waiting:</span> {isWaitingForResponse ? '✅' : '❌'}
+            </div>
+            <div className="bg-white p-2 rounded">
+              <span className="font-medium">Chunks:</span> {chunks.length}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {/* Recording Controls */}
       <Card>
@@ -956,52 +1039,6 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
               </ul>
             </Card>
           </div>
-
-          {/* Detailed Analysis */}
-          <Card title="Detailed Analysis">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">Stage Distribution</h4>
-                <div className="space-y-2">
-                  {Object.entries(analysis.stageDistribution || {}).map(([stage, count]) => (
-                    <div key={stage} className="flex items-center justify-between">
-                      <span className={`px-2 py-1 rounded text-xs font-medium ${getStageColor(stage)}`}>
-                        {stage}
-                      </span>
-                      <span className="text-sm text-gray-600">{count} chunks</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <h4 className="font-medium text-gray-900 mb-3">Key Patterns Identified</h4>
-                <div className="space-y-2">
-                  {(analysis.identifiedPatterns || []).map((pattern: string, index: number) => (
-                    <div key={index} className="flex items-center">
-                      <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                      <span className="text-sm text-gray-700">{pattern}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Next Steps */}
-            {analysis.nextSteps && analysis.nextSteps.length > 0 && (
-              <div className="mt-6 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-                <h4 className="font-medium text-indigo-900 mb-3">Recommended Next Steps</h4>
-                <ul className="space-y-2">
-                  {analysis.nextSteps.map((step: string, index: number) => (
-                    <li key={index} className="flex items-start">
-                      <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                      <span className="text-sm text-indigo-800">{step}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </Card>
 
           {/* Action Buttons */}
           <div className="flex justify-center space-x-4">
