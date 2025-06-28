@@ -31,6 +31,11 @@ const LandingPage: React.FC = () => {
     window.location.href = '/signup';
   };
 
+  const handleSignIn = () => {
+    // Navigate to sign in page
+    window.location.href = '/signin';
+  };
+
   const features = [
     {
       icon: <Mic className="h-8 w-8" />,
@@ -126,11 +131,11 @@ const LandingPage: React.FC = () => {
                 Start Learning Free
               </Button>
               <Button 
+                onClick={handleSignIn}
                 variant="outline" 
                 className="border-2 border-gray-300 text-gray-700 hover:border-blue-500 hover:text-blue-600 px-8 py-4 text-lg font-semibold"
-                leftIcon={<Play className="h-5 w-5" />}
               >
-                Watch Demo
+                Sign In
               </Button>
             </div>
             
@@ -425,10 +430,11 @@ const LandingPage: React.FC = () => {
               Start Learning Free
             </Button>
             <Button 
+              onClick={handleSignIn}
               variant="outline" 
               className="border-2 border-white text-white hover:bg-white hover:text-blue-600 px-8 py-4 text-lg font-semibold"
             >
-              Schedule Demo
+              Sign In
             </Button>
           </div>
           

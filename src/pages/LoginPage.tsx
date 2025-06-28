@@ -12,7 +12,10 @@ const LoginPage: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
-  const [isSignUp, setIsSignUp] = useState(false);
+  
+  // Determine if we should show sign-up or sign-in based on URL
+  const currentPath = window.location.pathname;
+  const [isSignUp, setIsSignUp] = useState(currentPath === '/signup');
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +39,13 @@ const LoginPage: React.FC = () => {
       }
     }
   };
+
+  const handleToggleMode = (showSignUp: boolean) => {
+    setIsSignUp(showSignUp);
+    // Update URL without page reload
+    const newPath = showSignUp ? '/signup' : '/signin';
+    window.history.pushState({}, '', newPath);
+  };
   
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
@@ -58,7 +68,7 @@ const LoginPage: React.FC = () => {
           {isSignUp ? (
             <SignUpForm
               onSuccess={() => setIsSignUp(false)}
-              onLoginClick={() => setIsSignUp(false)}
+              onLoginClick={() => handleToggleMode(false)}
             />
           ) : (
             <form className="space-y-6" onSubmit={handleSubmit}>
@@ -153,7 +163,7 @@ const LoginPage: React.FC = () => {
                   Don't have an account?{' '}
                   <button
                     type="button"
-                    onClick={() => setIsSignUp(true)}
+                    onClick={() => handleToggleMode(true)}
                     className="font-medium text-blue-600 hover:text-blue-500"
                   >
                     Sign up

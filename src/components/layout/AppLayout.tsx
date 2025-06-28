@@ -19,6 +19,9 @@ const AppLayout: React.FC = () => {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [openProblemModal, setOpenProblemModal] = useState(false);
 
+  // Get current route from URL
+  const currentPath = window.location.pathname;
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -27,8 +30,13 @@ const AppLayout: React.FC = () => {
     );
   }
 
-  // Show landing page if user is not logged in
+  // Handle authentication routing
   if (!userId) {
+    // Allow access to sign-in and sign-up pages
+    if (currentPath === '/signin' || currentPath === '/signup') {
+      return <LoginPage />;
+    }
+    // For all other routes, show landing page
     return <LandingPage />;
   }
 
