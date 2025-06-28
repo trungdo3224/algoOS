@@ -32,9 +32,14 @@ const AppLayout: React.FC = () => {
 
   // Handle authentication routing
   if (!userId) {
-    // Allow access to sign-in and sign-up pages
+    // Show sign-in/sign-up pages only if user explicitly navigated to them
     if (currentPath === '/signin' || currentPath === '/signup') {
-      return <LoginPage />;
+      return (
+        <div>
+          <Navbar />
+          <LoginPage />
+        </div>
+      );
     }
     // For all other routes, show landing page
     return <LandingPage />;

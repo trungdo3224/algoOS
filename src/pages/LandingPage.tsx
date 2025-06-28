@@ -97,6 +97,41 @@ const LandingPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white">
+      {/* Navigation */}
+      <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between h-16">
+            <div className="flex items-center">
+              <div className="flex-shrink-0 flex items-center">
+                <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <Brain className="h-6 w-6 text-white" />
+                </div>
+                <span className="ml-3 text-xl font-bold bg-gradient-to-r from-blue-600 to-blue-800 text-transparent bg-clip-text">
+                  AlgoMind
+                </span>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <Button 
+                onClick={handleSignIn}
+                variant="outline" 
+                size="sm"
+              >
+                Sign In
+              </Button>
+              <Button 
+                onClick={handleStartLearning}
+                variant="primary" 
+                size="sm"
+              >
+                Get Started
+              </Button>
+            </div>
+          </div>
+        </div>
+      </nav>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
         <div className="absolute inset-0 bg-grid-pattern opacity-5"></div>
