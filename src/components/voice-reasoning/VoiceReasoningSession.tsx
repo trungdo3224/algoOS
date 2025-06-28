@@ -33,6 +33,7 @@ interface AIMessage {
   content: string;
   timestamp: Date;
   type: 'response' | 'question' | 'encouragement';
+  isUser?: boolean;
 }
 
 const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
@@ -53,13 +54,14 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   
-  // New state for AI interaction
+  // AI interaction state
   const [aiMessages, setAiMessages] = useState<AIMessage[]>([]);
-  const [lastChunkTime, setLastChunkTime] = useState<number>(0);
+  const [lastSpeechTime, setLastSpeechTime] = useState<number>(0);
   const [silenceTimer, setSilenceTimer] = useState<NodeJS.Timeout | null>(null);
   const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
   const [userInput, setUserInput] = useState('');
   const [showChatInput, setShowChatInput] = useState(false);
+  const [lastAIResponseTime, setLastAIResponseTime] = useState<number>(0);
 
   const recorderRef = useRef<VoiceReasoningRecorder | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -87,20 +89,23 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
   // Monitor for silence and trigger AI responses
   useEffect(() => {
-    if (isRecording && !isPaused && chunks.length > 0) {
+    if (isRecording && !isPaused && chunks.length > 0 && !isWaitingForResponse) {
       // Clear existing timer
       if (silenceTimer) {
         clearTimeout(silenceTimer);
       }
 
-      // Set new timer for silence detection
-      const timer = setTimeout(() => {
-        if (isRecording && !isPaused && !isWaitingForResponse) {
-          handleSilenceDetected();
-        }
-      }, silenceThreshold);
+      // Only set timer if enough time has passed since last AI response
+      const timeSinceLastAI = Date.now() - lastAIResponseTime;
+      if (timeSinceLastAI > 30000) { // At least 30 seconds between AI interventions
+        const timer = setTimeout(() => {
+          if (isRecording && !isPaused && !isWaitingForResponse) {
+            handleSilenceDetected();
+          }
+        }, silenceThreshold);
 
-      setSilenceTimer(timer);
+        setSilenceTimer(timer);
+      }
     }
 
     return () => {
@@ -108,7 +113,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         clearTimeout(silenceTimer);
       }
     };
-  }, [lastChunkTime, isRecording, isPaused, isWaitingForResponse]);
+  }, [lastSpeechTime, isRecording, isPaused, isWaitingForResponse, chunks.length]);
 
   const loadVoices = async () => {
     try {
@@ -123,8 +128,10 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   };
 
   const handleSilenceDetected = async () => {
-    if (chunks.length === 0) return;
+    if (chunks.length === 0 || isWaitingForResponse) return;
 
+    console.log('Silence detected, generating AI response...');
+    
     const lastChunk = chunks[chunks.length - 1];
     const aiResponse = generateAIResponse(lastChunk, chunks);
     
@@ -132,32 +139,50 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       id: `ai_${Date.now()}`,
       content: aiResponse.content,
       timestamp: new Date(),
-      type: aiResponse.type
+      type: aiResponse.type,
+      isUser: false
     };
 
     setAiMessages(prev => [...prev, aiMessage]);
     setIsWaitingForResponse(true);
     setShowChatInput(true);
+    setLastAIResponseTime(Date.now());
 
-    // Play the AI response if voice is available
-    if (selectedVoice) {
-      try {
-        const audioUrl = await generateSpeech(aiResponse.content, selectedVoice.voice_id);
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        
-        audioRef.current = new Audio(audioUrl);
-        audioRef.current.onended = () => {
-          setIsPlayingAudio(false);
-        };
-        
-        setIsPlayingAudio(true);
-        await audioRef.current.play();
-      } catch (error) {
-        console.error('Error playing AI response:', error);
-        setIsPlayingAudio(false);
+    // Play the AI response using ElevenLabs
+    await playAIMessage(aiResponse.content);
+  };
+
+  const playAIMessage = async (message: string) => {
+    if (!selectedVoice) {
+      console.log('No voice selected for AI message');
+      return;
+    }
+
+    try {
+      console.log('Playing AI message with ElevenLabs...');
+      setIsPlayingAudio(true);
+      
+      const audioUrl = await generateSpeech(message, selectedVoice.voice_id);
+      
+      if (audioRef.current) {
+        audioRef.current.pause();
       }
+      
+      audioRef.current = new Audio(audioUrl);
+      audioRef.current.onended = () => {
+        setIsPlayingAudio(false);
+        console.log('AI message playback finished');
+      };
+      audioRef.current.onerror = () => {
+        setIsPlayingAudio(false);
+        console.error('Error playing AI message');
+      };
+      
+      await audioRef.current.play();
+      console.log('AI message started playing');
+    } catch (error) {
+      console.error('Error playing AI response:', error);
+      setIsPlayingAudio(false);
     }
   };
 
@@ -166,8 +191,15 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     const stage = lastChunk.stage || 'general';
     const chunkCount = allChunks.length;
 
+    console.log(`Generating AI response for stage: ${stage}, chunk count: ${chunkCount}`);
+
     // Check if user is asking a question
-    if (transcript.includes('?') || transcript.includes('how') || transcript.includes('what') || transcript.includes('why')) {
+    if (transcript.includes('?') || 
+        transcript.includes('how do i') || 
+        transcript.includes('what should') || 
+        transcript.includes('why') ||
+        transcript.includes('can you help') ||
+        transcript.includes('i need help')) {
       return {
         content: generateQuestionResponse(transcript, stage),
         type: 'response' as const
@@ -175,49 +207,50 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
 
     // Generate contextual questions based on stage and progress
-    if (stage === 'understanding') {
-      return {
-        content: "I notice you're working on understanding the problem. What specific part of the requirements seems most challenging to you?",
-        type: 'question' as const
-      };
-    } else if (stage === 'simulation') {
-      return {
-        content: "You're walking through an example - that's great! Can you explain what happens in the next step of your approach?",
-        type: 'question' as const
-      };
-    } else if (stage === 'pattern') {
-      return {
-        content: "I can see you're thinking about algorithmic patterns. What similar problems have you solved that might relate to this one?",
-        type: 'question' as const
-      };
-    } else if (stage === 'validation') {
-      return {
-        content: "You're validating your approach - excellent! What edge cases are you considering?",
-        type: 'question' as const
-      };
-    } else if (stage === 'solution') {
-      return {
-        content: "You're working on the solution implementation. Are there any optimizations you're thinking about?",
-        type: 'question' as const
-      };
-    }
-
-    // General encouragement based on progress
-    if (chunkCount < 3) {
-      return {
-        content: "You're off to a good start! Take your time to think through the problem step by step.",
-        type: 'encouragement' as const
-      };
-    } else if (chunkCount < 6) {
-      return {
-        content: "I can see you're making progress. What's your current thinking about the best approach to solve this?",
-        type: 'question' as const
-      };
-    } else {
-      return {
-        content: "You've been working through this thoughtfully. Is there anything specific you'd like to clarify or explore further?",
-        type: 'question' as const
-      };
+    switch (stage) {
+      case 'understanding':
+        return {
+          content: "I notice you're working on understanding the problem. What specific part of the requirements seems most challenging to you?",
+          type: 'question' as const
+        };
+      case 'simulation':
+        return {
+          content: "You're walking through an example - that's great! Can you explain what happens in the next step of your approach?",
+          type: 'question' as const
+        };
+      case 'pattern':
+        return {
+          content: "I can see you're thinking about algorithmic patterns. What similar problems have you solved that might relate to this one?",
+          type: 'question' as const
+        };
+      case 'validation':
+        return {
+          content: "You're validating your approach - excellent! What edge cases are you considering?",
+          type: 'question' as const
+        };
+      case 'solution':
+        return {
+          content: "You're working on the solution implementation. Are there any optimizations you're thinking about?",
+          type: 'question' as const
+        };
+      default:
+        // General encouragement based on progress
+        if (chunkCount < 3) {
+          return {
+            content: "You're off to a good start! Take your time to think through the problem step by step.",
+            type: 'encouragement' as const
+          };
+        } else if (chunkCount < 6) {
+          return {
+            content: "I can see you're making progress. What's your current thinking about the best approach to solve this?",
+            type: 'question' as const
+          };
+        } else {
+          return {
+            content: "You've been working through this thoughtfully. Is there anything specific you'd like to clarify or explore further?",
+            type: 'question' as const
+          };
+        }
     }
   };
 
@@ -238,12 +271,15 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const handleUserResponse = async () => {
     if (!userInput.trim()) return;
 
+    console.log('User responded:', userInput);
+
     // Add user message to chat
     const userMessage: AIMessage = {
       id: `user_${Date.now()}`,
       content: userInput,
       timestamp: new Date(),
-      type: 'response'
+      type: 'response',
+      isUser: true
     };
 
     setAiMessages(prev => [...prev, userMessage]);
@@ -254,35 +290,19 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       id: `ai_${Date.now() + 1}`,
       content: followUp,
       timestamp: new Date(),
-      type: 'response'
+      type: 'response',
+      isUser: false
     };
 
     setAiMessages(prev => [...prev, aiMessage]);
 
-    // Play follow-up if voice is available
-    if (selectedVoice) {
-      try {
-        const audioUrl = await generateSpeech(followUp, selectedVoice.voice_id);
-        if (audioRef.current) {
-          audioRef.current.pause();
-        }
-        
-        audioRef.current = new Audio(audioUrl);
-        audioRef.current.onended = () => {
-          setIsPlayingAudio(false);
-        };
-        
-        setIsPlayingAudio(true);
-        await audioRef.current.play();
-      } catch (error) {
-        console.error('Error playing AI follow-up:', error);
-        setIsPlayingAudio(false);
-      }
-    }
+    // Play follow-up
+    await playAIMessage(followUp);
 
     setUserInput('');
     setIsWaitingForResponse(false);
     setShowChatInput(false);
+    setLastAIResponseTime(Date.now());
   };
 
   const generateFollowUpResponse = (userResponse: string) => {
@@ -302,6 +322,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
   const startRecording = () => {
     if (!recorderRef.current) return;
 
+    console.log('Starting voice reasoning session...');
     startTimeRef.current = Date.now();
     setIsRecording(true);
     setIsPaused(false);
@@ -309,7 +330,8 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setChunks([]);
     setSessionDuration(0);
     setAiMessages([]);
-    setLastChunkTime(Date.now());
+    setLastSpeechTime(Date.now());
+    setLastAIResponseTime(0);
 
     // Start duration timer
     intervalRef.current = setInterval(() => {
@@ -323,11 +345,16 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         }
       },
       (chunk) => {
+        console.log('New speech chunk received:', chunk.transcript);
         setChunks(prev => [...prev, chunk]);
         setCurrentTranscript('');
-        setLastChunkTime(Date.now());
-        setIsWaitingForResponse(false);
-        setShowChatInput(false);
+        setLastSpeechTime(Date.now());
+        
+        // Reset waiting state when user speaks
+        if (isWaitingForResponse) {
+          setIsWaitingForResponse(false);
+          setShowChatInput(false);
+        }
       },
       (error) => {
         console.error('Recording error:', error);
@@ -353,7 +380,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     if (recorderRef.current && isPaused) {
       startTimeRef.current = Date.now() - sessionDuration;
       setIsPaused(false);
-      setLastChunkTime(Date.now());
+      setLastSpeechTime(Date.now());
       
       intervalRef.current = setInterval(() => {
         setSessionDuration(Date.now() - startTimeRef.current);
@@ -368,9 +395,12 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         (chunk) => {
           setChunks(prev => [...prev, chunk]);
           setCurrentTranscript('');
-          setLastChunkTime(Date.now());
-          setIsWaitingForResponse(false);
-          setShowChatInput(false);
+          setLastSpeechTime(Date.now());
+          
+          if (isWaitingForResponse) {
+            setIsWaitingForResponse(false);
+            setShowChatInput(false);
+          }
         },
         (error) => {
           console.error('Recording error:', error);
@@ -406,10 +436,19 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     try {
       // Use Gemini-powered analysis
       const sessionAnalysis = await analyzeReasoningPatterns(
-        chunks, 
-        problemTitle, 
-        problemDescription
+        chunks,
+        problemTitle || 'Algorithm Problem',
+        problemDescription || 'Problem solving session'
       );
+      
+      // Add AI interaction data to analysis
+      sessionAnalysis.aiInteractions = {
+        totalMessages: aiMessages.length,
+        questionsAsked: aiMessages.filter(m => m.type === 'question' && !m.isUser).length,
+        userResponses: aiMessages.filter(m => m.isUser).length,
+        encouragements: aiMessages.filter(m => m.type === 'encouragement').length
+      };
+      
       setAnalysis(sessionAnalysis);
     } catch (error) {
       console.error('Error analyzing session:', error);
@@ -419,7 +458,13 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         potentialIssues: ['Analysis temporarily unavailable'],
         suggestions: ['Try the session again for detailed feedback'],
         overallScore: 5,
-        detailedFeedback: 'Session completed successfully. Detailed analysis is temporarily unavailable.'
+        detailedFeedback: 'Session completed successfully. Detailed analysis is temporarily unavailable.',
+        aiInteractions: {
+          totalMessages: aiMessages.length,
+          questionsAsked: aiMessages.filter(m => m.type === 'question' && !m.isUser).length,
+          userResponses: aiMessages.filter(m => m.isUser).length,
+          encouragements: aiMessages.filter(m => m.type === 'encouragement').length
+        }
       });
     } finally {
       setIsAnalyzing(false);
@@ -438,6 +483,8 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     setIsWaitingForResponse(false);
     setShowChatInput(false);
     setUserInput('');
+    setLastSpeechTime(0);
+    setLastAIResponseTime(0);
     
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
@@ -494,6 +541,10 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
       feedback += `Your reasoning scored ${analysis.overallScore} out of 10. `;
     }
     
+    if (analysis.aiInteractions) {
+      feedback += `During our session, I asked ${analysis.aiInteractions.questionsAsked} questions and you responded ${analysis.aiInteractions.userResponses} times. `;
+    }
+    
     if (analysis.strengths && analysis.strengths.length > 0) {
       feedback += `I noticed some strong points in your reasoning: ${analysis.strengths.join(', ')}. `;
     }
@@ -533,11 +584,15 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
     }
   };
 
-  const getMessageTypeColor = (type: string) => {
+  const getMessageTypeColor = (type: string, isUser: boolean = false) => {
+    if (isUser) {
+      return 'bg-blue-50 border-blue-200 text-blue-800';
+    }
+    
     switch (type) {
-      case 'question': return 'bg-blue-50 border-blue-200 text-blue-800';
+      case 'question': return 'bg-purple-50 border-purple-200 text-purple-800';
       case 'encouragement': return 'bg-green-50 border-green-200 text-green-800';
-      case 'response': return 'bg-purple-50 border-purple-200 text-purple-800';
+      case 'response': return 'bg-orange-50 border-orange-200 text-orange-800';
       default: return 'bg-gray-50 border-gray-200 text-gray-800';
     }
   };
@@ -553,7 +608,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
             </div>
             <div>
               <h2 className="text-xl font-bold">Interactive Voice Reasoning</h2>
-              <p className="text-purple-100">Think out loud while solving: {problemTitle}</p>
+              <p className="text-purple-100">AI-powered coaching while you think aloud: {problemTitle}</p>
             </div>
           </div>
           <div className="text-right">
@@ -573,7 +628,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 text-lg"
                 leftIcon={<Mic className="h-6 w-6" />}
               >
-                Start Recording
+                Start Interactive Session
               </Button>
             )}
 
@@ -662,6 +717,12 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                   <span>{aiMessages.length} AI interactions</span>
                 </div>
               )}
+              {isPlayingAudio && (
+                <div className="flex items-center">
+                  <Volume2 className="h-4 w-4 mr-1 text-green-600 animate-pulse" />
+                  <span>AI Speaking...</span>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -669,22 +730,32 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
 
       {/* AI Interaction Panel */}
       {aiMessages.length > 0 && (
-        <Card title="AI Coaching Conversation">
-          <div className="space-y-4 max-h-60 overflow-y-auto mb-4">
+        <Card title="🤖 AI Coaching Conversation">
+          <div className="space-y-3 max-h-80 overflow-y-auto mb-4">
             {aiMessages.map((message) => (
               <div
                 key={message.id}
-                className={`p-3 rounded-lg border ${getMessageTypeColor(message.type)}`}
+                className={`p-3 rounded-lg border ${getMessageTypeColor(message.type, message.isUser)}`}
               >
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs font-medium">
-                    {message.id.startsWith('ai_') ? '🤖 AI Coach' : '👤 You'}
+                    {message.isUser ? '👤 You' : '🤖 AI Coach'}
                   </span>
                   <span className="text-xs opacity-75">
                     {message.timestamp.toLocaleTimeString()}
                   </span>
                 </div>
                 <p className="text-sm">{message.content}</p>
+                {!message.isUser && (
+                  <button
+                    onClick={() => playAIMessage(message.content)}
+                    className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                    disabled={isPlayingAudio}
+                  >
+                    <Volume2 className="h-3 w-3 mr-1" />
+                    {isPlayingAudio ? 'Playing...' : 'Play Again'}
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -692,6 +763,11 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           {/* Chat Input */}
           {showChatInput && (
             <div className="border-t pt-4">
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
+                <p className="text-sm text-yellow-800">
+                  💬 The AI coach is waiting for your response. You can type here or continue speaking.
+                </p>
+              </div>
               <div className="flex space-x-2">
                 <input
                   type="text"
@@ -752,8 +828,8 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
         <Card>
           <div className="text-center py-8">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Your Reasoning...</h3>
-            <p className="text-gray-600">Gemini AI is processing your thought patterns and identifying insights</p>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Your Interactive Session...</h3>
+            <p className="text-gray-600">Gemini AI is processing your reasoning patterns and AI interactions</p>
           </div>
         </Card>
       )}
@@ -811,9 +887,33 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
           {analysis.overallScore && (
             <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
               <div className="text-center">
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Reasoning Quality Score</h3>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">Interactive Reasoning Score</h3>
                 <div className="text-4xl font-bold text-blue-600 mb-2">{analysis.overallScore}/10</div>
                 <p className="text-gray-600">{analysis.detailedFeedback}</p>
+              </div>
+            </Card>
+          )}
+
+          {/* AI Interaction Summary */}
+          {analysis.aiInteractions && (
+            <Card title="🤖 AI Interaction Summary">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center p-4 bg-purple-50 rounded-lg">
+                  <div className="text-2xl font-bold text-purple-600">{analysis.aiInteractions.totalMessages}</div>
+                  <div className="text-sm text-purple-700">Total Messages</div>
+                </div>
+                <div className="text-center p-4 bg-blue-50 rounded-lg">
+                  <div className="text-2xl font-bold text-blue-600">{analysis.aiInteractions.questionsAsked}</div>
+                  <div className="text-sm text-blue-700">Questions Asked</div>
+                </div>
+                <div className="text-center p-4 bg-green-50 rounded-lg">
+                  <div className="text-2xl font-bold text-green-600">{analysis.aiInteractions.userResponses}</div>
+                  <div className="text-sm text-green-700">Your Responses</div>
+                </div>
+                <div className="text-center p-4 bg-orange-50 rounded-lg">
+                  <div className="text-2xl font-bold text-orange-600">{analysis.aiInteractions.encouragements}</div>
+                  <div className="text-sm text-orange-700">Encouragements</div>
+                </div>
               </div>
             </Card>
           )}
@@ -847,7 +947,7 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
             <Card className="bg-blue-50 border-blue-200">
               <div className="flex items-center mb-3">
                 <Lightbulb className="h-5 w-5 text-blue-600 mr-2" />
-                <h3 className="font-medium text-blue-900">Suggestions</h3>
+                <h3 className="font-medium text-blue-900">AI Suggestions</h3>
               </div>
               <ul className="space-y-1">
                 {(analysis.suggestions || []).map((suggestion: string, index: number) => (
@@ -886,33 +986,6 @@ const VoiceReasoningSession: React.FC<VoiceReasoningSessionProps> = ({
                 </div>
               </div>
             </div>
-
-            {/* AI Interaction Summary */}
-            {aiMessages.length > 0 && (
-              <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                <h4 className="font-medium text-purple-900 mb-3">AI Interaction Summary</h4>
-                <div className="grid grid-cols-3 gap-4 text-sm">
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-purple-600">
-                      {aiMessages.filter(m => m.type === 'question').length}
-                    </div>
-                    <div className="text-purple-700">Questions Asked</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-purple-600">
-                      {aiMessages.filter(m => m.id.startsWith('user_')).length}
-                    </div>
-                    <div className="text-purple-700">Your Responses</div>
-                  </div>
-                  <div className="text-center">
-                    <div className="text-lg font-bold text-purple-600">
-                      {aiMessages.filter(m => m.type === 'encouragement').length}
-                    </div>
-                    <div className="text-purple-700">Encouragements</div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             {/* Next Steps */}
             {analysis.nextSteps && analysis.nextSteps.length > 0 && (
