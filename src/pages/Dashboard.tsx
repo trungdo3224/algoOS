@@ -170,7 +170,6 @@ const Dashboard: React.FC = () => {
             title="Overall Score"
             value={`${averageScore.toFixed(1)}/10`}
             icon={Brain}
-            trend={{ value: 12, isPositive: true }}
             className="from-blue-500 to-blue-600"
           />
           
@@ -178,7 +177,6 @@ const Dashboard: React.FC = () => {
             title="Problems Solved"
             value={problems.length}
             icon={BookOpen}
-            trend={{ value: 8, isPositive: true }}
             className="from-purple-500 to-purple-600"
           />
           
@@ -186,7 +184,6 @@ const Dashboard: React.FC = () => {
             title="Pattern Mastery"
             value={`${patternMastery.toFixed(0)}%`}
             icon={TrendingUp}
-            trend={{ value: 15, isPositive: true }}
             className="from-green-500 to-green-600"
           />
           
@@ -194,7 +191,6 @@ const Dashboard: React.FC = () => {
             title="Current Streak"
             value={`${streak} days`}
             icon={Trophy}
-            trend={{ value: 2, isPositive: true }}
             className="from-amber-500 to-amber-600"
           />
         </div>
