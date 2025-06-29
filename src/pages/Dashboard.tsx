@@ -121,6 +121,108 @@ const Dashboard: React.FC = () => {
   const patternMastery = (insights?.filter(i => i.avg_score >= 7).length || 0) / (insights?.length || 1) * 100;
   const goalsMet = Math.floor((averageScore / 10) * 10);
 
+  // Calculate real trend data
+  const calculateTrend = (currentValue: number, historicalData: any[], valueExtractor: (item: any) => number, daysBack: number = 30) => {
+    if (!historicalData || historicalData.length < 2) return undefined;
+    
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysBack);
+    
+    const recentData = historicalData.filter(item => {
+      const itemDate = new Date(item.submitted_at || item.updated_at || item.created_at);
+      return itemDate >= cutoffDate;
+    });
+    
+    const olderData = historicalData.filter(item => {
+      const itemDate = new Date(item.submitted_at || item.updated_at || item.created_at);
+      return itemDate < cutoffDate;
+    });
+    
+    if (recentData.length === 0 || olderData.length === 0) return undefined;
+    
+    const recentAvg = recentData.reduce((sum, item) => sum + valueExtractor(item), 0) / recentData.length;
+    const olderAvg = olderData.reduce((sum, item) => sum + valueExtractor(item), 0) / olderData.length;
+    
+    if (olderAvg === 0) return undefined;
+    
+    const percentChange = ((recentAvg - olderAvg) / olderAvg) * 100;
+    return {
+      value: Math.abs(percentChange),
+      isPositive: percentChange > 0
+    };
+  };
+
+  // Calculate specific trends
+  const scoreTrend = calculateTrend(
+    averageScore,
+    submissions || [],
+    (submission) => submission.grader_score || 0
+  );
+
+  const problemsSolvedTrend = (() => {
+    if (!submissions || submissions.length < 2) return undefined;
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentProblems = submissions.filter(s => new Date(s.submitted_at) >= thirtyDaysAgo).length;
+    const olderProblems = submissions.filter(s => new Date(s.submitted_at) < thirtyDaysAgo).length;
+    
+    if (olderProblems === 0) return undefined;
+    
+    const percentChange = ((recentProblems - olderProblems) / olderProblems) * 100;
+    return {
+      value: Math.abs(percentChange),
+      isPositive: percentChange > 0
+    };
+  })();
+
+  const patternMasteryTrend = (() => {
+    if (!insights || insights.length < 2) return undefined;
+    
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    const recentInsights = insights.filter(i => new Date(i.updated_at) >= thirtyDaysAgo);
+    const olderInsights = insights.filter(i => new Date(i.updated_at) < thirtyDaysAgo);
+    
+    if (recentInsights.length === 0 || olderInsights.length === 0) return undefined;
+    
+    const recentMastery = (recentInsights.filter(i => i.avg_score >= 7).length / recentInsights.length) * 100;
+    const olderMastery = (olderInsights.filter(i => i.avg_score >= 7).length / olderInsights.length) * 100;
+    
+    if (olderMastery === 0) return undefined;
+    
+    const percentChange = ((recentMastery - olderMastery) / olderMastery) * 100;
+    return {
+      value: Math.abs(percentChange),
+      isPositive: percentChange > 0
+    };
+  })();
+
+  const streakTrend = (() => {
+    if (!activities || activities.length < 7) return undefined;
+    
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const recentActivity = activities.filter(a => new Date(a.date) >= sevenDaysAgo).length;
+    const previousWeekActivity = activities.filter(a => {
+      const activityDate = new Date(a.date);
+      const fourteenDaysAgo = new Date();
+      fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+      return activityDate >= fourteenDaysAgo && activityDate < sevenDaysAgo;
+    }).length;
+    
+    if (previousWeekActivity === 0) return undefined;
+    
+    const percentChange = ((recentActivity - previousWeekActivity) / previousWeekActivity) * 100;
+    return {
+      value: Math.abs(percentChange),
+      isPositive: percentChange > 0
+    };
+  })();
+
   if (submissionsLoading || insightsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -170,6 +272,7 @@ const Dashboard: React.FC = () => {
             title="Overall Score"
             value={`${averageScore.toFixed(1)}/10`}
             icon={Brain}
+            trend={scoreTrend}
             className="from-blue-500 to-blue-600"
           />
           
@@ -177,6 +280,7 @@ const Dashboard: React.FC = () => {
             title="Problems Solved"
             value={problems.length}
             icon={BookOpen}
+            trend={problemsSolvedTrend}
             className="from-purple-500 to-purple-600"
           />
           
@@ -184,6 +288,7 @@ const Dashboard: React.FC = () => {
             title="Pattern Mastery"
             value={`${patternMastery.toFixed(0)}%`}
             icon={TrendingUp}
+            trend={patternMasteryTrend}
             className="from-green-500 to-green-600"
           />
           
@@ -191,6 +296,7 @@ const Dashboard: React.FC = () => {
             title="Current Streak"
             value={`${streak} days`}
             icon={Trophy}
+            trend={streakTrend}
             className="from-amber-500 to-amber-600"
           />
         </div>
