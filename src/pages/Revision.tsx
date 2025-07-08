@@ -344,11 +344,7 @@ const Revision: React.FC = () => {
             </div>
           </Card>
         ) : (
-          <div className="space-y-4">
-            <div className="text-sm text-gray-600 mb-4">
-              Showing all {revisionSuggestions.length} problems that need revision
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {revisionSuggestions.map((suggestion, index) => (
               <RevisionSuggestion
                 key={`${suggestion.problem.problem_id}-${index}`}
@@ -365,7 +361,6 @@ const Revision: React.FC = () => {
                 onStart={() => handleStartRevision(suggestion.problem.problem_id)}
               />
             ))}
-            </div>
           </div>
         )}
       </div>

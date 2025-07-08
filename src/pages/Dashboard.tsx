@@ -412,20 +412,9 @@ const Dashboard: React.FC = () => {
       
       {/* Recent Study Sessions */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Recent Study Sessions</h2>
-          {submissions && submissions.length > 3 && (
-            <Button
-              onClick={() => window.location.href = '/ssa-coaching'}
-              variant="outline"
-              rightIcon={<ArrowRight className="h-4 w-4" />}
-            >
-              View All Sessions
-            </Button>
-          )}
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Study Sessions</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {submissions?.map((submission, index) => (
+          {submissions?.slice(0, 3).map((submission, index) => (
             <StudySessionCard
               key={index}
               date={new Date(submission.submitted_at)}
@@ -434,11 +423,6 @@ const Dashboard: React.FC = () => {
               averageScore={submission.grader_score || 0}
             />
           ))}
-          {(!submissions || submissions.length === 0) && (
-            <div className="col-span-full text-center py-8 text-gray-500">
-              No study sessions yet. Start solving problems to see your progress!
-            </div>
-          )}
         </div>
       </div>
     </div>

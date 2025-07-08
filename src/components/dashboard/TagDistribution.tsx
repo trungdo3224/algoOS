@@ -8,30 +8,16 @@ interface TagStats {
 
 interface TagDistributionProps {
   tags: TagStats[];
-  showAll?: boolean;
 }
 
-const TagDistribution: React.FC<TagDistributionProps> = ({ tags, showAll = false }) => {
-  const [isExpanded, setIsExpanded] = useState(showAll);
+const TagDistribution: React.FC<TagDistributionProps> = ({ tags }) => {
   const sortedTags = [...tags].sort((a, b) => b.count - a.count);
-  const displayTags = isExpanded ? sortedTags : sortedTags.slice(0, 8);
   const maxCount = Math.max(...tags.map(t => t.count));
 
   return (
-    <Card>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-medium text-gray-900">Problem Tags</h3>
-        {sortedTags.length > 8 && (
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-          >
-            {isExpanded ? `Show Less` : `Show All (${sortedTags.length})`}
-          </button>
-        )}
-      </div>
+    <Card title="Top Problem Tags">
       <div className="space-y-4">
-        {displayTags.map((tag, index) => (
+        {sortedTags.map((tag, index) => (
           <div key={tag.name}>
             <div className="flex items-center justify-between mb-1">
               <span className="text-sm font-medium text-gray-700">{tag.name}</span>
@@ -48,13 +34,6 @@ const TagDistribution: React.FC<TagDistributionProps> = ({ tags, showAll = false
             </div>
           </div>
         ))}
-        {!isExpanded && sortedTags.length > 8 && (
-          <div className="text-center pt-2">
-            <span className="text-sm text-gray-500">
-              and {sortedTags.length - 8} more tags...
-            </span>
-          </div>
-        )}
       </div>
     </Card>
   );
