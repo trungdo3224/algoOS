@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { supabase } from "../../lib/supabase";
-import type { Problem } from "../../lib/supabase";
+import { supabase, isSupabaseConfigured } from "../../lib/supabase";
+import type { Problem } from "../../types";
+import { SAMPLE_PROBLEMS } from "../../data/sampleProblems";
 
 interface ProblemState {
   problems: Problem[];
@@ -16,78 +17,6 @@ interface ProblemState {
     };
   };
 }
-
-const initialState: ProblemState = {
-  problems: [],
-  loading: false,
-  error: null,
-  stats: {
-    totalTimeTaken: 0,
-    totalAttempts: 0,
-    averageTimePerProblem: 0,
-    averageAttemptsPerProblem: 0,
-    statusDistribution: {},
-  },
-};
-
-export const fetchProblems = createAsyncThunk(
-  'problems/fetchProblems',
-  async () => {
-    const { data, error } = await supabase
-      .from('problems')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) throw error;
-    return data;
-  }
-);
-
-export const createProblem = createAsyncThunk(
-  'problems/createProblem',
-  async (problem: Partial<Problem>) => {
-    const { data, error } = await supabase
-      .from('problems')
-      .insert(problem)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data;
-  }
-);
-
-export const updateProblem = createAsyncThunk(
-  'problems/updateProblem',
-  async ({ id, updates }: { id: string; updates: Partial<Problem> }) => {
-    const { data, error } = await supabase
-      .from('problems')
-      .update(updates)
-      .eq('problem_id', id)
-      .select();
-
-    if (error) throw error;
-    
-    if (!data || data.length === 0) {
-      throw new Error('Problem not found for update: no rows affected.');
-    }
-    
-    return data[0];
-  }
-);
-
-export const deleteProblem = createAsyncThunk(
-  'problems/deleteProblem',
-  async (id: string) => {
-    const { error } = await supabase
-      .from('problems')
-      .delete()
-      .eq('problem_id', id);
-
-    if (error) throw error;
-    return id;
-  }
-);
 
 const calculateStats = (problems: Problem[]) => {
   const validProblems = problems.filter(p => p.time_taken || p.attempts);
@@ -109,6 +38,112 @@ const calculateStats = (problems: Problem[]) => {
     statusDistribution,
   };
 };
+
+const initialState: ProblemState = {
+  problems: SAMPLE_PROBLEMS,
+  loading: false,
+  error: null,
+  stats: calculateStats(SAMPLE_PROBLEMS),
+};
+
+export const fetchProblems = createAsyncThunk(
+  'problems/fetchProblems',
+  async () => {
+    if (!isSupabaseConfigured) {
+      return SAMPLE_PROBLEMS;
+    }
+    try {
+      const { data, error } = await supabase
+        .from('problems')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.warn('Database query error, using local sample problems:', error);
+        return SAMPLE_PROBLEMS;
+      }
+      return data && data.length > 0 ? data : SAMPLE_PROBLEMS;
+    } catch (err) {
+      console.warn('Network error fetching problems:', err);
+      return SAMPLE_PROBLEMS;
+    }
+  }
+);
+
+export const createProblem = createAsyncThunk(
+  'problems/createProblem',
+  async (problem: Partial<Problem>) => {
+    if (!isSupabaseConfigured) {
+      const newProblem: Problem = {
+        problem_id: 'p-' + Date.now(),
+        title: problem.title || 'Untitled Problem',
+        description: problem.description || '',
+        difficulty: problem.difficulty || 'Medium',
+        tags: problem.tags || [],
+        site: problem.site || 'Custom',
+        example_input: problem.example_input || '',
+        example_output: problem.example_output || '',
+        constraints: problem.constraints || '',
+        hint: problem.hint || '',
+        status: problem.status || 'Đã tự giải',
+        created_at: new Date().toISOString(),
+        time_taken: problem.time_taken || 0,
+        attempts: problem.attempts || 1,
+        note: problem.note || '',
+      };
+      return newProblem;
+    }
+
+    const { data, error } = await supabase
+      .from('problems')
+      .insert(problem)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  }
+);
+
+export const updateProblem = createAsyncThunk(
+  'problems/updateProblem',
+  async ({ id, updates }: { id: string; updates: Partial<Problem> }) => {
+    if (!isSupabaseConfigured) {
+      return { problem_id: id, ...updates } as Problem;
+    }
+
+    const { data, error } = await supabase
+      .from('problems')
+      .update(updates)
+      .eq('problem_id', id)
+      .select();
+
+    if (error) throw error;
+    
+    if (!data || data.length === 0) {
+      throw new Error('Problem not found for update: no rows affected.');
+    }
+    
+    return data[0];
+  }
+);
+
+export const deleteProblem = createAsyncThunk(
+  'problems/deleteProblem',
+  async (id: string) => {
+    if (!isSupabaseConfigured) {
+      return id;
+    }
+
+    const { error } = await supabase
+      .from('problems')
+      .delete()
+      .eq('problem_id', id);
+
+    if (error) throw error;
+    return id;
+  }
+);
 
 const problemSlice = createSlice({
   name: "problems",
@@ -139,7 +174,7 @@ const problemSlice = createSlice({
       .addCase(updateProblem.fulfilled, (state, action) => {
         const index = state.problems.findIndex(p => p.problem_id === action.payload.problem_id);
         if (index !== -1) {
-          state.problems[index] = action.payload;
+          state.problems[index] = { ...state.problems[index], ...action.payload };
           state.stats = calculateStats(state.problems);
         }
       })

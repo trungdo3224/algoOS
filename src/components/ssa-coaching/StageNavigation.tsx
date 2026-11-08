@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Lock, Circle } from 'lucide-react';
+import { CheckCircle, Lock } from 'lucide-react';
 
 interface StageNavigationProps {
   currentStage: number;
@@ -8,11 +8,11 @@ interface StageNavigationProps {
 }
 
 const stages = [
-  { id: 1, name: 'Understanding', shortName: 'Understand' },
-  { id: 2, name: 'Simulation', shortName: 'Simulate' },
-  { id: 3, name: 'Pattern Recognition', shortName: 'Pattern' },
-  { id: 4, name: 'Validation', shortName: 'Validate' },
-  { id: 5, name: 'Solution Planning', shortName: 'Solution' },
+  { id: 1, name: '1. Understanding', shortName: '1. Understand' },
+  { id: 2, name: '2. Simulation', shortName: '2. Simulate' },
+  { id: 3, name: '3. Pattern Recognition', shortName: '3. Pattern' },
+  { id: 4, name: '4. Validation', shortName: '4. Validate' },
+  { id: 5, name: '5. Solution Planning', shortName: '5. Solution' },
 ];
 
 const StageNavigation: React.FC<StageNavigationProps> = ({
@@ -33,87 +33,58 @@ const StageNavigation: React.FC<StageNavigationProps> = ({
     return 'locked';
   };
 
-  const getStageIcon = (stageId: number) => {
-    const status = getStageStatus(stageId);
-    
-    switch (status) {
-      case 'validated':
-        return <CheckCircle className="h-5 w-5 text-green-600" />;
-      case 'current':
-        return <Circle className="h-5 w-5 text-blue-600 fill-current" />;
-      case 'locked':
-        return <Lock className="h-4 w-4 text-gray-400" />;
-      default:
-        return <Circle className="h-5 w-5 text-gray-400" />;
-    }
-  };
-
-  const getStageClasses = (stageId: number) => {
-    const status = getStageStatus(stageId);
-    const isClickable = status === 'validated' || status === 'current';
-    
-    let baseClasses = `
-      flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all duration-200
-      ${isClickable ? 'cursor-pointer' : 'cursor-not-allowed'}
-    `;
-
-    switch (status) {
-      case 'validated':
-        return `${baseClasses} bg-green-50 text-green-800 hover:bg-green-100 border border-green-200`;
-      case 'current':
-        return `${baseClasses} bg-blue-100 text-blue-800 border-2 border-blue-300`;
-      case 'locked':
-        return `${baseClasses} bg-gray-50 text-gray-400 border border-gray-200`;
-      default:
-        return `${baseClasses} bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200`;
-    }
-  };
-
   return (
-    <div className="bg-white rounded-lg border border-gray-200 p-4 mb-4">
-      <h3 className="text-sm font-medium text-gray-700 mb-3">Progress Stages</h3>
+    <div className="bg-white rounded-xl border border-zinc-200/90 p-4 mb-4 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+          Socratic Reasoning Pipeline
+        </h3>
+        <span className="text-xs font-mono font-medium text-zinc-500">
+          Stage {currentStage} of 5
+        </span>
+      </div>
       
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
         {stages.map((stage) => {
           const status = getStageStatus(stage.id);
           const isClickable = status === 'validated' || status === 'current';
-          
+          const isValidated = status === 'validated';
+          const isCurrent = status === 'current';
+
           return (
-            <div
+            <button
               key={stage.id}
-              className={getStageClasses(stage.id)}
               onClick={() => isClickable && handleStageClick(stage.id)}
+              disabled={!isClickable}
+              className={`
+                flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium text-left transition-all duration-150
+                ${isCurrent 
+                  ? 'bg-zinc-900 text-white shadow-sm ring-1 ring-zinc-900 font-semibold' 
+                  : isValidated 
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200/80 hover:bg-emerald-100/70' 
+                  : 'bg-zinc-50 text-zinc-400 border border-zinc-200/60 cursor-not-allowed opacity-70'
+                }
+              `}
               title={
                 status === 'locked' 
-                  ? 'Complete the current stage first' 
-                  : `${stage.name} - ${status === 'validated' ? 'Completed' : 'In Progress'}`
+                  ? 'Complete previous stage first' 
+                  : `${stage.name} - ${isValidated ? 'Completed' : 'In Progress'}`
               }
             >
-              <span className="mr-2">{getStageIcon(stage.id)}</span>
-              <span className="hidden sm:inline">{stage.name}</span>
-              <span className="sm:hidden">{stage.shortName}</span>
-              {status === 'validated' && (
-                <span className="ml-2 text-xs bg-green-200 text-green-800 px-1.5 py-0.5 rounded-full">
-                  ✓
-                </span>
-              )}
-            </div>
+              <div className="flex items-center space-x-2 truncate">
+                {isValidated ? (
+                  <CheckCircle className="h-3.5 w-3.5 text-emerald-600 flex-shrink-0" />
+                ) : isCurrent ? (
+                  <span className="h-2 w-2 rounded-full bg-white animate-pulse flex-shrink-0" />
+                ) : (
+                  <Lock className="h-3.5 w-3.5 text-zinc-400 flex-shrink-0" />
+                )}
+                <span className="truncate hidden lg:inline">{stage.name}</span>
+                <span className="truncate lg:hidden">{stage.shortName}</span>
+              </div>
+            </button>
           );
         })}
-      </div>
-
-      {/* Progress Bar */}
-      <div className="mt-4">
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>Progress</span>
-          <span>{validatedStages.length}/5 stages completed</span>
-        </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
-          <div
-            className="bg-gradient-to-r from-blue-500 to-green-500 h-2 rounded-full transition-all duration-300"
-            style={{ width: `${(validatedStages.length / 5) * 100}%` }}
-          />
-        </div>
       </div>
     </div>
   );

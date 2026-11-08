@@ -1,5 +1,5 @@
 import React from 'react';
-import { Clock, Calendar } from 'lucide-react';
+import { Clock, Calendar, Trophy } from 'lucide-react';
 import Card from '../ui/Card';
 
 interface StudySessionCardProps {
@@ -28,45 +28,57 @@ const StudySessionCard: React.FC<StudySessionCardProps> = ({
     const mins = minutes % 60;
     
     if (hours === 0) {
-      return `${mins} min`;
+      return `${mins}m`;
     } else if (mins === 0) {
-      return `${hours} hr`;
+      return `${hours}h`;
     } else {
-      return `${hours} hr ${mins} min`;
+      return `${hours}h ${mins}m`;
     }
   };
 
+  const getScoreColor = (score: number) => {
+    if (score >= 8) return 'text-emerald-700 bg-emerald-50 border-emerald-200/80';
+    if (score >= 6) return 'text-amber-700 bg-amber-50 border-amber-200/80';
+    return 'text-rose-700 bg-rose-50 border-rose-200/80';
+  };
+
   return (
-    <Card hoverable className="flex flex-col h-full">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center text-gray-500">
-          <Calendar className="h-4 w-4 mr-1" />
-          <span className="text-sm">{formatDate(date)}</span>
+    <Card hoverable className="flex flex-col justify-between h-full group">
+      <div>
+        <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-100 text-xs text-zinc-500">
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 text-zinc-400" />
+            <span className="font-medium text-zinc-700">{formatDate(date)}</span>
+          </div>
+          <div className="flex items-center gap-1.5 bg-zinc-100/70 px-2 py-0.5 rounded text-zinc-600 font-mono text-[11px]">
+            <Clock className="h-3 w-3 text-zinc-400" />
+            <span>{formatDuration(duration)}</span>
+          </div>
         </div>
-        <div className="flex items-center text-gray-500">
-          <Clock className="h-4 w-4 mr-1" />
-          <span className="text-sm">{formatDuration(duration)}</span>
+        
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <div className="bg-zinc-50 border border-zinc-100 rounded-lg p-3 text-left">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-0.5">Problems</p>
+            <p className="text-2xl font-bold text-zinc-900 tabular-nums">{problemsSolved}</p>
+          </div>
+          <div className="bg-zinc-50 border border-zinc-100 rounded-lg p-3 text-left">
+            <p className="text-[11px] font-medium uppercase tracking-wider text-zinc-400 mb-0.5">Score</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-2xl font-bold text-zinc-900 tabular-nums">{averageScore.toFixed(1)}</span>
+              <span className="text-xs text-zinc-400">/10</span>
+            </div>
+          </div>
         </div>
       </div>
-      
-      <div className="flex justify-between mb-2">
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-500">Problems</p>
-          <p className="text-2xl font-bold text-gray-900">{problemsSolved}</p>
-        </div>
-        <div className="text-center">
-          <p className="text-sm font-medium text-gray-500">Avg. Score</p>
-          <p className="text-2xl font-bold text-gray-900">{averageScore.toFixed(2)}/10</p>
-        </div>
-      </div>
-      
-      <div className="mt-auto pt-4">
-        <div className="w-full bg-gray-200 rounded-full h-2.5">
-          <div 
-            className="bg-blue-600 h-2.5 rounded-full" 
-            style={{ width: `${(averageScore / 10) * 100}%` }}
-          ></div>
-        </div>
+
+      <div className="pt-2 flex items-center justify-between text-xs">
+        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold border ${getScoreColor(averageScore)}`}>
+          <Trophy className="h-3 w-3" />
+          {averageScore >= 8 ? 'Mastery' : averageScore >= 6 ? 'Competent' : 'Developing'}
+        </span>
+        <span className="text-zinc-400 text-[11px] group-hover:text-zinc-700 transition-colors">
+          View details →
+        </span>
       </div>
     </Card>
   );

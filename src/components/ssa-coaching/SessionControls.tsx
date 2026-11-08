@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { RotateCcw, ChevronLeft, ChevronRight, AlertTriangle } from 'lucide-react';
+import { RotateCcw, ChevronLeft, ChevronRight } from 'lucide-react';
 import Button from '../ui/Button';
 
 interface SessionControlsProps {
@@ -40,26 +40,26 @@ const SessionControls: React.FC<SessionControlsProps> = ({
   };
 
   return (
-    <div className="flex items-center justify-between bg-gray-50 rounded-lg p-3 border border-gray-200">
+    <div className="flex items-center justify-between bg-white rounded-xl p-3 border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       <div className="flex items-center space-x-2">
         <Button
           variant="outline"
           size="sm"
           onClick={handlePrevious}
           disabled={!canGoPrevious || isLoading}
-          leftIcon={<ChevronLeft className="h-4 w-4" />}
+          leftIcon={<ChevronLeft className="h-3.5 w-3.5" />}
         >
-          Previous
+          Previous Stage
         </Button>
         
         <Button
-          variant="outline"
+          variant={canGoNext ? "primary" : "outline"}
           size="sm"
           onClick={handleNext}
           disabled={!canGoNext || isLoading}
-          rightIcon={<ChevronRight className="h-4 w-4" />}
+          rightIcon={<ChevronRight className="h-3.5 w-3.5" />}
         >
-          Next
+          Next Stage
         </Button>
       </div>
 
@@ -70,28 +70,29 @@ const SessionControls: React.FC<SessionControlsProps> = ({
             size="sm"
             onClick={() => setShowResetConfirm(true)}
             disabled={isLoading}
-            leftIcon={<RotateCcw className="h-4 w-4" />}
-            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+            leftIcon={<RotateCcw className="h-3.5 w-3.5 text-zinc-400 group-hover:text-rose-600" />}
+            className="text-zinc-500 hover:text-rose-600 hover:bg-rose-50"
           >
             Reset Session
           </Button>
         ) : (
-          <div className="flex items-center space-x-2 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
-            <AlertTriangle className="h-4 w-4 text-red-600" />
-            <span className="text-sm text-red-800">Are you sure?</span>
+          <div className="flex items-center space-x-2 bg-rose-50 border border-rose-200 rounded-lg px-2.5 py-1">
+            <span className="text-xs font-medium text-rose-800">Confirm reset?</span>
             <Button
               variant="danger"
               size="sm"
               onClick={handleResetConfirm}
               disabled={isLoading}
+              className="h-7 px-2 text-xs"
             >
-              Yes, Reset
+              Reset
             </Button>
             <Button
               variant="outline"
               size="sm"
               onClick={() => setShowResetConfirm(false)}
               disabled={isLoading}
+              className="h-7 px-2 text-xs"
             >
               Cancel
             </Button>

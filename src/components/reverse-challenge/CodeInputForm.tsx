@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Code, Zap, AlertTriangle, Lightbulb } from 'lucide-react';
+import { Zap, AlertTriangle, Lightbulb, Terminal } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
@@ -100,45 +100,55 @@ const CodeInputForm: React.FC<CodeInputFormProps> = ({ onSubmit, isLoading }) =>
 
   return (
     <Card>
-      <div className="flex items-center mb-6">
-        <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
-          <Code className="h-6 w-6 text-white" />
+      <div className="flex items-center justify-between pb-4 mb-6 border-b border-zinc-100">
+        <div className="flex items-center space-x-3">
+          <div className="h-9 w-9 bg-zinc-950 text-white rounded-lg flex items-center justify-center font-mono">
+            <Terminal className="h-4 w-4" />
+          </div>
+          <div>
+            <h2 className="text-base font-semibold text-zinc-950">Source Implementation</h2>
+            <p className="text-xs text-zinc-500">Paste your algorithm to infer problem requirements and constraints</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-xl font-bold text-gray-900">Code Input</h2>
-          <p className="text-gray-600">Paste your solution code and let AI generate a problem for it</p>
-        </div>
+        <span className="text-[11px] font-mono font-medium text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded">
+          Python / TS / C++ / Java
+        </span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Code Input */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="code" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="code" className="block text-xs font-semibold uppercase tracking-wider text-zinc-600">
               Solution Code *
             </label>
-            <div className="text-xs text-gray-500">
-              Supports Python, JavaScript, Java, C++, and pseudocode
+            <div className="text-[11px] text-zinc-400 font-mono">
+              {code.length} chars
             </div>
           </div>
-          <textarea
-            id="code"
-            rows={12}
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
-            placeholder="def solution(arr):
-    # Your algorithm implementation here
-    result = []
-    for i in range(len(arr)):
-        # Process each element
-        pass
-    return result"
-            required
-          />
+          <div className="relative rounded-lg overflow-hidden border border-zinc-800 bg-zinc-950">
+            <div className="flex items-center justify-between px-3 py-1.5 bg-zinc-900 border-b border-zinc-800 text-[11px] text-zinc-400 font-mono">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500/80 inline-block" />
+                <span className="w-2 h-2 rounded-full bg-amber-500/80 inline-block" />
+                <span className="w-2 h-2 rounded-full bg-emerald-500/80 inline-block" />
+                <span className="ml-2 text-zinc-400">solution.py</span>
+              </span>
+              <span className="text-zinc-500">UTF-8</span>
+            </div>
+            <textarea
+              id="code"
+              rows={12}
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              className="w-full px-4 py-3 bg-zinc-950 text-zinc-100 focus:outline-none font-mono text-xs leading-relaxed selection:bg-zinc-800"
+              placeholder={`def solution(arr):\n    # Your algorithm implementation here\n    result = []\n    for i in range(len(arr)):\n        # Process each element\n        pass\n    return result`}
+              required
+            />
+          </div>
           {error && (
-            <div className="mt-2 flex items-center text-sm text-red-600">
-              <AlertTriangle className="h-4 w-4 mr-1" />
+            <div className="mt-2 flex items-center text-xs font-medium text-rose-600">
+              <AlertTriangle className="h-3.5 w-3.5 mr-1.5 flex-shrink-0" />
               {error}
             </div>
           )}
@@ -146,10 +156,10 @@ const CodeInputForm: React.FC<CodeInputFormProps> = ({ onSubmit, isLoading }) =>
 
         {/* Quick Examples */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Quick Examples (Click to use)
+          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-2.5">
+            Load Preset Implementation
           </label>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {codeExamples.map((example, index) => (
               <button
                 key={index}
@@ -158,10 +168,10 @@ const CodeInputForm: React.FC<CodeInputFormProps> = ({ onSubmit, isLoading }) =>
                   handleCodeExample(example.code);
                   setSelectedPattern(example.pattern);
                 }}
-                className="p-3 text-left border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                className="p-3 text-left rounded-lg border border-zinc-200/80 bg-zinc-50/50 hover:bg-zinc-100 hover:border-zinc-300 transition-all text-xs"
               >
-                <div className="font-medium text-gray-900 text-sm">{example.name}</div>
-                <div className="text-xs text-gray-500 mt-1">{example.pattern}</div>
+                <div className="font-semibold text-zinc-900">{example.name}</div>
+                <div className="text-[11px] font-mono text-zinc-500 mt-1">{example.pattern}</div>
               </button>
             ))}
           </div>
@@ -169,14 +179,14 @@ const CodeInputForm: React.FC<CodeInputFormProps> = ({ onSubmit, isLoading }) =>
 
         {/* Pattern Selection */}
         <div>
-          <label htmlFor="pattern" className="block text-sm font-medium text-gray-700 mb-2">
-            Expected Algorithmic Pattern (Optional)
+          <label htmlFor="pattern" className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-2">
+            Target Algorithmic Pattern (Optional)
           </label>
           <select
             id="pattern"
             value={selectedPattern}
             onChange={(e) => setSelectedPattern(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 text-xs rounded-lg border border-zinc-200 bg-white text-zinc-900 focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900 focus:outline-none transition-colors"
           >
             {algorithmicPatterns.map((pattern) => (
               <option key={pattern} value={pattern}>
@@ -184,79 +194,76 @@ const CodeInputForm: React.FC<CodeInputFormProps> = ({ onSubmit, isLoading }) =>
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-gray-500">
-            Leave as "Auto-detect" to let AI analyze the pattern from your code
+          <p className="mt-1 text-[11px] text-zinc-400">
+            Leave as "Auto-detect" to infer the optimal invariant pattern directly from code AST.
           </p>
         </div>
 
         {/* Difficulty Selection */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
+          <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-2.5">
             Target Problem Difficulty
           </label>
-          <div className="flex space-x-4">
-            {(['Easy', 'Medium', 'Hard'] as const).map((level) => (
-              <label
-                key={level}
-                className={`
-                  flex items-center px-4 py-3 rounded-lg border-2 cursor-pointer transition-colors
-                  ${difficulty === level
-                    ? level === 'Easy'
-                      ? 'border-green-500 bg-green-50 text-green-700'
-                      : level === 'Medium'
-                      ? 'border-yellow-500 bg-yellow-50 text-yellow-700'
-                      : 'border-red-500 bg-red-50 text-red-700'
-                    : 'border-gray-200 hover:bg-gray-50'
-                  }
-                `}
-              >
-                <input
-                  type="radio"
-                  className="sr-only"
-                  value={level}
-                  checked={difficulty === level}
-                  onChange={(e) => setDifficulty(e.target.value as 'Easy' | 'Medium' | 'Hard')}
-                />
-                <div className="text-center">
-                  <div className="font-medium">{level}</div>
-                  <div className="text-xs mt-1">
-                    {level === 'Easy' && 'Simple logic, basic patterns'}
-                    {level === 'Medium' && 'Moderate complexity, common patterns'}
-                    {level === 'Hard' && 'Complex logic, advanced patterns'}
+          <div className="grid grid-cols-3 gap-3">
+            {(['Easy', 'Medium', 'Hard'] as const).map((level) => {
+              const isSelected = difficulty === level;
+              return (
+                <label
+                  key={level}
+                  className={`
+                    flex flex-col items-center justify-center p-3 rounded-lg border cursor-pointer transition-all
+                    ${isSelected
+                      ? 'border-zinc-950 bg-zinc-950 text-white shadow-sm'
+                      : 'border-zinc-200/90 bg-white hover:bg-zinc-50 text-zinc-700'
+                    }
+                  `}
+                >
+                  <input
+                    type="radio"
+                    className="sr-only"
+                    value={level}
+                    checked={isSelected}
+                    onChange={(e) => setDifficulty(e.target.value as 'Easy' | 'Medium' | 'Hard')}
+                  />
+                  <div className="flex items-center gap-1.5 font-semibold text-xs">
+                    <span className={`w-1.5 h-1.5 rounded-full ${
+                      level === 'Easy' ? 'bg-emerald-400' :
+                      level === 'Medium' ? 'bg-amber-400' : 'bg-rose-400'
+                    }`} />
+                    {level}
                   </div>
-                </div>
-              </label>
-            ))}
+                  <span className={`text-[10px] mt-1 text-center ${isSelected ? 'text-zinc-400' : 'text-zinc-500'}`}>
+                    {level === 'Easy' && 'Basic invariants'}
+                    {level === 'Medium' && 'Standard patterns'}
+                    {level === 'Hard' && 'Edge-heavy bounds'}
+                  </span>
+                </label>
+              );
+            })}
           </div>
         </div>
 
         {/* Tips */}
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-start">
-            <Lightbulb className="h-5 w-5 text-blue-600 mr-3 mt-0.5" />
-            <div>
-              <h4 className="text-sm font-medium text-blue-900 mb-2">Tips for Better Results</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
-                <li>• Include complete, working code with clear logic</li>
-                <li>• Add comments to explain complex parts</li>
-                <li>• Use meaningful variable names</li>
-                <li>• Include edge case handling if present</li>
-                <li>• The more complete your solution, the better the generated problem</li>
-              </ul>
-            </div>
+        <div className="p-4 rounded-lg bg-zinc-50 border border-zinc-200/70 text-xs text-zinc-600 space-y-1.5">
+          <div className="flex items-center gap-2 font-semibold text-zinc-900">
+            <Lightbulb className="h-4 w-4 text-zinc-700" />
+            <span>Optimal Synthesis Guidelines</span>
           </div>
+          <p className="text-[11px] text-zinc-500 leading-relaxed">
+            Include function signatures, variable naming, and return statements. The engine extracts preconditions, asymptotic bounds, and generates test suites tailored to the algorithm.
+          </p>
         </div>
 
         {/* Submit Button */}
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-2">
           <Button
             type="submit"
             disabled={!code.trim() || isLoading}
             isLoading={isLoading}
-            className="bg-gradient-to-r from-green-500 to-blue-600 hover:from-green-600 hover:to-blue-700 text-white px-8 py-3"
-            rightIcon={<Zap className="h-4 w-4" />}
+            variant="primary"
+            rightIcon={<Zap className="h-4 w-4 text-amber-400" />}
           >
-            Generate Problem
+            Generate Problem Specification
           </Button>
         </div>
       </form>

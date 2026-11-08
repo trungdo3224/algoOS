@@ -1,6 +1,6 @@
 import React from 'react';
 import Card from '../ui/Card';
-import type { ProblemStatus } from '../../lib/supabase';
+import type { ProblemStatus } from '../../types';
 
 interface StatusData {
   status: ProblemStatus;
@@ -17,44 +17,60 @@ const StatusBarChart: React.FC<StatusBarChartProps> = ({ data }) => {
   const getStatusColor = (status: ProblemStatus) => {
     switch (status) {
       case 'Đã tự giải':
-        return 'bg-green-500';
+        return 'bg-emerald-500';
       case 'Giải với hint':
-        return 'bg-yellow-500';
+        return 'bg-amber-500';
       case 'Giải từ solution':
-        return 'bg-orange-500';
+        return 'bg-indigo-500';
       case 'Cần ôn tập sớm':
-        return 'bg-red-500';
+        return 'bg-rose-500';
       case 'Đã ôn tập':
-        return 'bg-blue-500';
+        return 'bg-sky-600';
       default:
-        return 'bg-gray-500';
+        return 'bg-zinc-500';
     }
   };
 
   return (
-    <Card title="Thống kê theo trạng thái">
-      <p className="text-sm text-gray-500 mb-4">Số lượng bài theo từng trạng thái giải</p>
-      <div className="space-y-4">
-        {data.map((item) => (
-          <div key={item.status}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-gray-700">{item.status}</span>
-              <div className="flex items-baseline space-x-2">
-                <span className="text-sm font-medium text-gray-900">{item.count}</span>
-                <span className="text-xs text-gray-500">
-                  ({((item.count / total) * 100).toFixed(0)}%)
-                </span>
-              </div>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className={`h-full ${getStatusColor(item.status)} rounded-full transition-all duration-300`}
-                style={{ width: `${(item.count / total) * 100}%` }}
-              />
-            </div>
-          </div>
-        ))}
+    <Card>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight text-zinc-900">Status Metrics</h3>
+          <p className="text-xs text-zinc-500 mt-0.5">Problem volumes categorized by mastery state</p>
+        </div>
+        <span className="text-xs font-mono text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
+          {total} logged
+        </span>
       </div>
+
+      {total === 0 ? (
+        <div className="py-8 text-center text-zinc-400 text-xs">
+          No problem status records available yet.
+        </div>
+      ) : (
+        <div className="space-y-3.5">
+          {data.map((item) => {
+            const pct = total > 0 ? (item.count / total) * 100 : 0;
+            return (
+              <div key={item.status} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-zinc-800">{item.status}</span>
+                  <div className="flex items-baseline gap-1.5 tabular-nums">
+                    <span className="font-semibold text-zinc-900">{item.count}</span>
+                    <span className="text-[11px] text-zinc-400">({pct.toFixed(0)}%)</span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${getStatusColor(item.status)} rounded-full transition-all duration-300`}
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 };

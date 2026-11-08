@@ -1,46 +1,24 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAppSelector } from './reduxHooks';
-
-export function useProblems() {
-  const [problems, setProblems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    async function fetchProblems() {
-      try {
-        const { data, error } = await supabase
-          .from('problems')
-          .select('*');
-        
-        if (error) throw error;
-        setProblems(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchProblems();
-  }, []);
-
-  return { problems, loading, error };
-}
+import type { Submission, Insight, RevisionHistory } from '../types';
 
 export function useUserSubmissions() {
   const { id: userId } = useAppSelector((state) => state.user);
-  const [submissions, setSubmissions] = useState([]);
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     async function fetchSubmissions() {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+        const { data, error: fetchError } = await supabase
           .from('submissions')
           .select(`
             *,
@@ -49,10 +27,11 @@ export function useUserSubmissions() {
           .eq('user_id', userId)
           .order('submitted_at', { ascending: false });
         
-        if (error) throw error;
-        setSubmissions(data);
+        if (fetchError) throw fetchError;
+        setSubmissions(data || []);
       } catch (err) {
-        setError(err.message);
+        const message = err instanceof Error ? err.message : 'Failed to fetch submissions';
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -66,25 +45,30 @@ export function useUserSubmissions() {
 
 export function useUserInsights() {
   const { id: userId } = useAppSelector((state) => state.user);
-  const [insights, setInsights] = useState([]);
+  const [insights, setInsights] = useState<Insight[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     async function fetchInsights() {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+        const { data, error: fetchError } = await supabase
           .from('insights')
           .select('*')
           .eq('user_id', userId)
           .order('updated_at', { ascending: false });
         
-        if (error) throw error;
-        setInsights(data);
+        if (fetchError) throw fetchError;
+        setInsights(data || []);
       } catch (err) {
-        setError(err.message);
+        const message = err instanceof Error ? err.message : 'Failed to fetch insights';
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -98,16 +82,20 @@ export function useUserInsights() {
 
 export function useRevisionHistory() {
   const { id: userId } = useAppSelector((state) => state.user);
-  const [revisions, setRevisions] = useState([]);
+  const [revisions, setRevisions] = useState<RevisionHistory[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId) {
+      setLoading(false);
+      return;
+    }
 
     async function fetchRevisions() {
       try {
-        const { data, error } = await supabase
+        setLoading(true);
+        const { data, error: fetchError } = await supabase
           .from('revision_history')
           .select(`
             *,
@@ -116,10 +104,11 @@ export function useRevisionHistory() {
           .eq('user_id', userId)
           .order('last_attempt', { ascending: false });
         
-        if (error) throw error;
-        setRevisions(data);
+        if (fetchError) throw fetchError;
+        setRevisions(data || []);
       } catch (err) {
-        setError(err.message);
+        const message = err instanceof Error ? err.message : 'Failed to fetch revision history';
+        setError(message);
       } finally {
         setLoading(false);
       }

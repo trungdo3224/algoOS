@@ -12,29 +12,47 @@ interface TagDistributionProps {
 
 const TagDistribution: React.FC<TagDistributionProps> = ({ tags }) => {
   const sortedTags = [...tags].sort((a, b) => b.count - a.count);
-  const maxCount = Math.max(...tags.map(t => t.count));
+  const maxCount = tags.length > 0 ? Math.max(...tags.map(t => t.count), 1) : 1;
 
   return (
-    <Card title="Top Problem Tags">
-      <div className="space-y-4">
-        {sortedTags.map((tag, index) => (
-          <div key={tag.name}>
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-gray-700">{tag.name}</span>
-              <span className="text-sm text-gray-500">{tag.count} problems</span>
-            </div>
-            <div className="relative h-2">
-              <div className="absolute inset-0 bg-gray-100 rounded-full"></div>
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
-                style={{ width: `${(tag.count / maxCount) * 100}%` }}
-              >
-                <div className="absolute inset-0 bg-white bg-opacity-20 rounded-full"></div>
-              </div>
-            </div>
-          </div>
-        ))}
+    <Card>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight text-zinc-900">Pattern & Tag Distribution</h3>
+          <p className="text-xs text-zinc-500 mt-0.5">Most practiced algorithmic paradigms</p>
+        </div>
+        <span className="text-xs font-mono text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
+          {tags.length} patterns
+        </span>
       </div>
+
+      {sortedTags.length === 0 ? (
+        <div className="py-8 text-center text-zinc-400 text-xs">
+          No tags found yet. Tag your problems to see distribution metrics.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sortedTags.slice(0, 8).map((tag) => {
+            const pct = Math.min(100, (tag.count / maxCount) * 100);
+            return (
+              <div key={tag.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-medium text-zinc-800">{tag.name}</span>
+                  <span className="text-zinc-500 font-mono text-[11px] tabular-nums">
+                    {tag.count} {tag.count === 1 ? 'problem' : 'problems'}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 };

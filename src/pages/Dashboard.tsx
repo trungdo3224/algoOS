@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Brain, Clock, BookOpen, BarChart2, Trophy, Timer, Repeat, Target, TrendingUp } from 'lucide-react';
+import { Brain, Clock, BookOpen, Trophy, Timer, Target, TrendingUp } from 'lucide-react';
 import StatCard from '../components/dashboard/StatCard';
 import ProgressChart from '../components/dashboard/ProgressChart';
 import DifficultyDistribution from '../components/dashboard/DifficultyDistribution';
@@ -12,9 +12,15 @@ import ScoreTrend from '../components/insights/ScoreTrend';
 import PatternAnalysis from '../components/insights/PatternAnalysis';
 import WeaknessSummary from '../components/insights/WeaknessSummary';
 import StudyHeatmap from '../components/insights/StudyHeatmap';
-import Card from '../components/ui/Card';
 import { useUserSubmissions, useUserInsights } from '../hooks/useSupabase';
 import { useAppSelector } from '../hooks/reduxHooks';
+
+interface ActivityRecord {
+  date: string;
+  problemsSolved: number;
+  averageScore: number;
+  timeSpent: number;
+}
 
 const Dashboard: React.FC = () => {
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
@@ -44,7 +50,7 @@ const Dashboard: React.FC = () => {
 
   // Calculate tag stats from problems
   const tagStats = problems.reduce((acc: { name: string; count: number }[], problem) => {
-    problem.tags.forEach(tag => {
+    (problem.tags || []).forEach(tag => {
       const existing = acc.find(t => t.name === tag);
       if (existing) {
         existing.count++;
@@ -56,13 +62,13 @@ const Dashboard: React.FC = () => {
   }, []);
 
   // Calculate activity data
-  const activities = submissions?.reduce((acc: any[], submission) => {
+  const activities: ActivityRecord[] = submissions?.reduce((acc: ActivityRecord[], submission) => {
     const date = new Date(submission.submitted_at).toISOString().split('T')[0];
     const existing = acc.find(a => a.date === date);
     
     if (existing) {
       existing.problemsSolved++;
-      existing.averageScore = (existing.averageScore * (existing.problemsSolved - 1) + submission.grader_score) / existing.problemsSolved;
+      existing.averageScore = (existing.averageScore * (existing.problemsSolved - 1) + (submission.grader_score || 0)) / existing.problemsSolved;
       existing.timeSpent += stats.averageTimePerProblem;
     } else {
       acc.push({
@@ -94,8 +100,8 @@ const Dashboard: React.FC = () => {
   const patternData = insights?.map(insight => ({
     name: insight.tag,
     score: insight.avg_score,
-    problemCount: submissions?.filter(s => s.problems.tags.includes(insight.tag)).length || 0,
-    trend: Math.random() * 20 - 10 // Mock trend data
+    problemCount: submissions?.filter(s => s.problems?.tags?.includes(insight.tag)).length || 0,
+    trend: 0
   })) || [];
 
   // Calculate weakness data
@@ -119,7 +125,7 @@ const Dashboard: React.FC = () => {
   // Calculate insights statistics
   const averageScore = insights?.reduce((sum, i) => sum + i.avg_score, 0) / (insights?.length || 1);
   const patternMastery = (insights?.filter(i => i.avg_score >= 7).length || 0) / (insights?.length || 1) * 100;
-  const goalsMet = Math.floor((averageScore / 10) * 10);
+  const _goalsMet = Math.floor((averageScore / 10) * 10);
 
   // Calculate real trend data
   const calculateTrend = (currentValue: number, historicalData: any[], valueExtractor: (item: any) => number, daysBack: number = 30) => {
@@ -234,46 +240,74 @@ const Dashboard: React.FC = () => {
   // Calculate streak from activities
   const streak = calculateStreak(activities);
 
-  function calculateStreak(activities: any[]): number {
-    let streak = 0;
-    const today = new Date().toISOString().split('T')[0];
-    
-    for (let i = 0; i < activities.length; i++) {
-      if (activities[i].date === today || isConsecutiveDay(activities[i].date, activities[i-1]?.date)) {
-        streak++;
+  function calculateStreak(activitiesList: any[]): number {
+    if (!activitiesList || activitiesList.length === 0) return 0;
+
+    const uniqueDates = Array.from(new Set(activitiesList.map(a => a.date)))
+      .sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    const mostRecentDate = new Date(uniqueDates[0]);
+    mostRecentDate.setHours(0, 0, 0, 0);
+
+    const isToday = mostRecentDate.getTime() === today.getTime();
+    const isYesterday = mostRecentDate.getTime() === yesterday.getTime();
+
+    if (!isToday && !isYesterday) {
+      return 0;
+    }
+
+    let streakCount = 1;
+    const expectedDate = new Date(mostRecentDate);
+    expectedDate.setDate(expectedDate.getDate() - 1);
+
+    for (let i = 1; i < uniqueDates.length; i++) {
+      const currentDate = new Date(uniqueDates[i]);
+      currentDate.setHours(0, 0, 0, 0);
+
+      if (currentDate.getTime() === expectedDate.getTime()) {
+        streakCount++;
+        expectedDate.setDate(expectedDate.getDate() - 1);
       } else {
         break;
       }
     }
-    
-    return streak;
-  }
 
-  function isConsecutiveDay(current: string, previous?: string): boolean {
-    if (!previous) return false;
-    const currentDate = new Date(current);
-    const previousDate = new Date(previous);
-    const diffTime = Math.abs(currentDate.getTime() - previousDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    return diffDays === 1;
+    return streakCount;
   }
 
   return (
     <div className="space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-zinc-200/70">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-950">Engineering Dashboard</h1>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+            Real-time algorithmic mastery analytics, session cadence, and adaptive diagnostics.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-medium bg-white border border-zinc-200 shadow-sm text-zinc-700">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Active Session
+          </span>
+        </div>
+      </div>
+
       <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Learning Dashboard</h1>
-        <p className="text-gray-600 mb-8">
-          Comprehensive overview of your learning progress, insights, and performance analytics.
-        </p>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Core Performance KPIs</h2>
         
         {/* Main Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           <StatCard
             title="Overall Score"
             value={`${averageScore.toFixed(1)}/10`}
             icon={Brain}
             trend={scoreTrend}
-            className="from-blue-500 to-blue-600"
           />
           
           <StatCard
@@ -281,7 +315,6 @@ const Dashboard: React.FC = () => {
             value={problems.length}
             icon={BookOpen}
             trend={problemsSolvedTrend}
-            className="from-purple-500 to-purple-600"
           />
           
           <StatCard
@@ -289,7 +322,6 @@ const Dashboard: React.FC = () => {
             value={`${patternMastery.toFixed(0)}%`}
             icon={TrendingUp}
             trend={patternMasteryTrend}
-            className="from-green-500 to-green-600"
           />
           
           <StatCard
@@ -297,17 +329,15 @@ const Dashboard: React.FC = () => {
             value={`${streak} days`}
             icon={Trophy}
             trend={streakTrend}
-            className="from-amber-500 to-amber-600"
           />
         </div>
 
         {/* Secondary Stats Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           <StatCard
             title="Average Time"
             value={`${Math.floor(stats.averageTimePerProblem)} min`}
             icon={Timer}
-            className="from-indigo-500 to-indigo-600"
             breakdown={{
               easy: `${Math.floor(stats.averageTimePerProblem * 0.8)} min`,
               medium: `${Math.floor(stats.averageTimePerProblem)} min`,
@@ -319,7 +349,6 @@ const Dashboard: React.FC = () => {
             title="Average Attempts"
             value={stats.averageAttemptsPerProblem.toFixed(1)}
             icon={Target}
-            className="from-pink-500 to-pink-600"
             breakdown={{
               easy: (stats.averageAttemptsPerProblem * 0.8).toFixed(1),
               medium: stats.averageAttemptsPerProblem.toFixed(1),
@@ -331,7 +360,6 @@ const Dashboard: React.FC = () => {
             title="Total Time"
             value={`${Math.floor(stats.totalTimeTaken / 60)} hr`}
             icon={Clock}
-            className="from-teal-500 to-teal-600"
             breakdown={{
               easy: `${Math.floor(stats.totalTimeTaken * 0.3 / 60)} hr`,
               medium: `${Math.floor(stats.totalTimeTaken * 0.4 / 60)} hr`,
@@ -343,8 +371,8 @@ const Dashboard: React.FC = () => {
       
       {/* Performance Analytics Section */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Performance Analytics</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Adaptive Diagnostics</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           <ScoreTrend
             data={scoreTrendData}
             period={timePeriod}
@@ -353,7 +381,7 @@ const Dashboard: React.FC = () => {
           <PatternAnalysis data={patternData} />
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           <WeaknessSummary data={weaknessData} />
           <StudyHeatmap data={studyData} />
         </div>
@@ -361,18 +389,18 @@ const Dashboard: React.FC = () => {
 
       {/* Problem Statistics Section */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Problem Statistics</h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Curriculum Metrics</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           <ProgressChart data={progressData} />
           <DifficultyDistribution stats={difficultyStats} />
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
           <StatusBarChart data={statusStats} />
           <StatusPieChart data={statusStats} />
         </div>
         
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
           <ActivityCalendar activities={activities} />
           <TagDistribution tags={tagStats} />
         </div>
@@ -380,40 +408,44 @@ const Dashboard: React.FC = () => {
 
       {/* Personalized Recommendations */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Personalized Recommendations</h2>
-        <Card>
-          <div className="space-y-6">
-            <div className="p-6 bg-blue-50 rounded-lg">
-              <h3 className="text-lg font-medium text-blue-800 mb-3">Focus Areas</h3>
-              <p className="text-blue-700">
-                Based on your recent performance, we recommend focusing on {weaknessData.patterns.join(', ')}.
-                Your scores in these areas show potential for significant improvement.
-              </p>
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Personalized Strategic Takeaways</h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <div className="p-5 bg-white rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-2.5">
+            <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-900 border border-zinc-200/70 flex items-center justify-center font-semibold">
+              <Target className="h-4 w-4" />
             </div>
-
-            <div className="p-6 bg-green-50 rounded-lg">
-              <h3 className="text-lg font-medium text-green-800 mb-3">Study Patterns</h3>
-              <p className="text-green-700">
-                Your learning is most effective during morning sessions. Consider scheduling more
-                practice during these peak performance hours.
-              </p>
-            </div>
-
-            <div className="p-6 bg-purple-50 rounded-lg">
-              <h3 className="text-lg font-medium text-purple-800 mb-3">Next Steps</h3>
-              <p className="text-purple-700">
-                Try tackling more medium-difficulty problems in your weaker areas. This will help
-                build confidence and improve problem-solving patterns.
-              </p>
-            </div>
+            <h3 className="text-sm font-semibold text-zinc-900">Priority Focus</h3>
+            <p className="text-xs text-zinc-600 leading-relaxed">
+              Based on your recent performance, prioritize {weaknessData.patterns.length > 0 ? weaknessData.patterns.join(', ') : 'Sliding Window & Hash Tables'}. Strengthening these patterns will yield the highest rating gains.
+            </p>
           </div>
-        </Card>
+
+          <div className="p-5 bg-white rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-2.5">
+            <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-900 border border-zinc-200/70 flex items-center justify-center font-semibold">
+              <Clock className="h-4 w-4" />
+            </div>
+            <h3 className="text-sm font-semibold text-zinc-900">Cognitive Cadence</h3>
+            <p className="text-xs text-zinc-600 leading-relaxed">
+              Your problem-solving clarity peaks during morning practice blocks. Consider scheduling deliberate practice before tackling complex Hard problems.
+            </p>
+          </div>
+
+          <div className="p-5 bg-white rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.03)] space-y-2.5">
+            <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-900 border border-zinc-200/70 flex items-center justify-center font-semibold">
+              <Brain className="h-4 w-4" />
+            </div>
+            <h3 className="text-sm font-semibold text-zinc-900">Recommended Action</h3>
+            <p className="text-xs text-zinc-600 leading-relaxed">
+              Try solving 2 medium problems using the SSA Coaching mode to validate each phase before code implementation.
+            </p>
+          </div>
+        </div>
       </div>
       
       {/* Recent Study Sessions */}
       <div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-6">Recent Study Sessions</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <h2 className="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Recent Study Sessions</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {submissions?.slice(0, 3).map((submission, index) => (
             <StudySessionCard
               key={index}

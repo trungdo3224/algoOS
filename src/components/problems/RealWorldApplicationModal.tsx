@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, RefreshCw, Code, Lightbulb, Briefcase, Globe, Clock, Database, Zap, Shield, BarChart, Users } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, RefreshCw, Code, Lightbulb, Globe, Clock, Database, Zap, Shield, BarChart, Users } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { generateRealWorldApplication } from '../../services/gemini';
@@ -20,13 +20,7 @@ const RealWorldApplicationModal: React.FC<RealWorldApplicationModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen && !application) {
-      generateApplication();
-    }
-  }, [isOpen]);
-
-  const generateApplication = async () => {
+  const generateApplication = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     
@@ -39,7 +33,14 @@ const RealWorldApplicationModal: React.FC<RealWorldApplicationModalProps> = ({
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [problem]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setApplication(null);
+      generateApplication();
+    }
+  }, [isOpen, problem.problem_id, generateApplication]);
 
   const handleRegenerate = () => {
     setApplication(null);
@@ -49,25 +50,30 @@ const RealWorldApplicationModal: React.FC<RealWorldApplicationModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl shadow-2xl border border-zinc-200/90 w-full max-w-5xl max-h-[92vh] overflow-y-auto">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-md border-b border-zinc-200/80 px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <Globe className="h-6 w-6 text-white" />
+            <div className="h-9 w-9 bg-zinc-950 text-white rounded-lg flex items-center justify-center font-mono">
+              <Globe className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Real-world Application</h2>
-              <p className="text-sm text-gray-600">{problem.title}</p>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold">
+                  Synthetic Case Study
+                </span>
+              </div>
+              <h2 className="text-base font-bold tracking-tight text-zinc-950">Real-World Engineering Context</h2>
             </div>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             {application && (
               <Button
                 onClick={handleRegenerate}
                 variant="outline"
-                leftIcon={<RefreshCw className="h-4 w-4" />}
+                size="sm"
+                leftIcon={<RefreshCw className="h-3.5 w-3.5" />}
                 disabled={isLoading}
               >
                 Regenerate
@@ -75,9 +81,9 @@ const RealWorldApplicationModal: React.FC<RealWorldApplicationModalProps> = ({
             )}
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 transition-colors"
+              className="p-1.5 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 transition-colors"
             >
-              <X className="h-6 w-6" />
+              <X className="h-4 w-4" />
             </button>
           </div>
         </div>
@@ -85,24 +91,26 @@ const RealWorldApplicationModal: React.FC<RealWorldApplicationModalProps> = ({
         <div className="p-6">
           {/* Loading State */}
           {isLoading && (
-            <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full mb-6">
-                <RefreshCw className="h-8 w-8 text-white animate-spin" />
+            <div className="text-center py-16">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-zinc-950 text-white rounded-xl mb-4">
+                <RefreshCw className="h-5 w-5 animate-spin" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Generating Real-world Analysis...</h3>
-              <p className="text-gray-600">Gemini AI is analyzing the problem and creating practical applications</p>
+              <h3 className="text-sm font-semibold text-zinc-900 mb-1">Synthesizing Real-World Architecture...</h3>
+              <p className="text-xs text-zinc-500 max-w-sm mx-auto">
+                Gemini is translating algorithm invariants into production-grade distributed system scenarios.
+              </p>
             </div>
           )}
 
           {/* Error State */}
           {error && (
             <div className="text-center py-12">
-              <div className="text-red-600 mb-4">
-                <X className="h-12 w-12 mx-auto" />
+              <div className="w-10 h-10 rounded-full bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto mb-3">
+                <X className="h-5 w-5" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Generation Failed</h3>
-              <p className="text-gray-600 mb-4">{error}</p>
-              <Button onClick={generateApplication} leftIcon={<RefreshCw className="h-4 w-4" />}>
+              <h3 className="text-sm font-semibold text-zinc-900 mb-1">Generation Failed</h3>
+              <p className="text-xs text-zinc-500 mb-4">{error}</p>
+              <Button onClick={generateApplication} size="sm" variant="outline" leftIcon={<RefreshCw className="h-3.5 w-3.5" />}>
                 Try Again
               </Button>
             </div>
@@ -110,280 +118,244 @@ const RealWorldApplicationModal: React.FC<RealWorldApplicationModalProps> = ({
 
           {/* Content */}
           {application && !isLoading && (
-            <div className="space-y-8">
+            <div className="space-y-6">
               {/* Problem Overview */}
-              <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+              <div className="bg-zinc-50 border border-zinc-200/80 rounded-xl p-5 space-y-2.5">
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{problem.title}</h3>
-                    <p className="text-gray-700 mb-4">{problem.description}</p>
-                    <div className="flex items-center space-x-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium
-                        ${problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
-                          problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'}`}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium ${
+                        problem.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' :
+                        problem.difficulty === 'Medium' ? 'bg-amber-50 text-amber-700 border border-amber-200/60' :
+                        'bg-rose-50 text-rose-700 border border-rose-200/60'
+                      }`}>
                         {problem.difficulty}
                       </span>
-                      <div className="flex items-center space-x-2">
-                        {problem.tags.slice(0, 3).map((tag, index) => (
-                          <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                            {tag}
-                          </span>
-                        ))}
-                        {problem.tags.length > 3 && (
-                          <span className="text-xs text-gray-500">+{problem.tags.length - 3} more</span>
-                        )}
-                      </div>
+                      <h3 className="text-base font-bold text-zinc-950">{problem.title}</h3>
                     </div>
+                    <p className="text-xs text-zinc-600 leading-relaxed">{problem.description}</p>
                   </div>
                 </div>
-              </Card>
+              </div>
 
               {/* 1. Theoretical Foundation */}
               <Card>
-                <div className="flex items-center mb-6">
-                  <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-4">
-                    <Code className="h-6 w-6 text-white" />
+                <div className="flex items-center mb-4 pb-3 border-b border-zinc-100">
+                  <div className="h-7 w-7 bg-zinc-950 text-white rounded-lg flex items-center justify-center mr-2.5 font-mono text-xs">
+                    01
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">1. Theoretical Foundation</h3>
-                    <p className="text-gray-600">Computer science concepts and algorithmic theory</p>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Theoretical Foundation</h3>
+                    <h4 className="text-sm font-bold text-zinc-900">Computer Science Invariants</h4>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <Lightbulb className="h-4 w-4 mr-2 text-yellow-500" />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                  <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                      <Lightbulb className="h-3 w-3 mr-1 text-zinc-600" />
                       Core Concepts
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
+                    </h5>
+                    <div className="flex flex-wrap gap-1.5">
                       {application.theoreticalFoundation.concepts.map((concept, index) => (
-                        <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full">
+                        <span key={index} className="px-2 py-0.5 bg-white text-zinc-800 text-xs font-mono rounded border border-zinc-200">
                           {concept}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <Zap className="h-4 w-4 mr-2 text-purple-500" />
-                      Algorithms
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
+                  <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                      <Zap className="h-3 w-3 mr-1 text-zinc-600" />
+                      Algorithms &amp; Techniques
+                    </h5>
+                    <div className="flex flex-wrap gap-1.5">
                       {application.theoreticalFoundation.algorithms.map((algorithm, index) => (
-                        <span key={index} className="px-3 py-1 bg-purple-100 text-purple-800 text-sm rounded-full">
+                        <span key={index} className="px-2 py-0.5 bg-white text-zinc-800 text-xs font-mono rounded border border-zinc-200">
                           {algorithm}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <Database className="h-4 w-4 mr-2 text-green-500" />
+                  <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                      <Database className="h-3 w-3 mr-1 text-zinc-600" />
                       Data Structures
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
+                    </h5>
+                    <div className="flex flex-wrap gap-1.5">
                       {application.theoreticalFoundation.dataStructures.map((structure, index) => (
-                        <span key={index} className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full">
+                        <span key={index} className="px-2 py-0.5 bg-white text-zinc-800 text-xs font-mono rounded border border-zinc-200">
                           {structure}
                         </span>
                       ))}
                     </div>
                   </div>
 
-                  <div>
-                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                      <BarChart className="h-4 w-4 mr-2 text-orange-500" />
-                      Complexity
-                    </h4>
-                    <div className="space-y-2">
-                      <div className="text-sm">
-                        <span className="font-medium">Time:</span> {application.theoreticalFoundation.timeComplexity}
+                  <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                    <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                      <BarChart className="h-3 w-3 mr-1 text-zinc-600" />
+                      Asymptotic Bounds
+                    </h5>
+                    <div className="space-y-1 text-xs font-mono">
+                      <div>
+                        <span className="text-zinc-500">Time:</span> <strong className="text-zinc-900">{application.theoreticalFoundation.timeComplexity}</strong>
                       </div>
-                      <div className="text-sm">
-                        <span className="font-medium">Space:</span> {application.theoreticalFoundation.spaceComplexity}
+                      <div>
+                        <span className="text-zinc-500">Space:</span> <strong className="text-zinc-900">{application.theoreticalFoundation.spaceComplexity}</strong>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <h4 className="font-semibold text-gray-900 mb-2">Explanation</h4>
-                  <p className="text-gray-700">{application.theoreticalFoundation.explanation}</p>
+                <div className="p-3.5 bg-zinc-100/70 rounded-lg border border-zinc-200/60 text-xs text-zinc-700 leading-relaxed">
+                  <span className="font-semibold text-zinc-900">Rationale: </span>
+                  {application.theoreticalFoundation.explanation}
                 </div>
               </Card>
 
               {/* 2. Practical Application */}
               <Card>
-                <div className="flex items-center mb-6">
-                  <div className="h-10 w-10 bg-gradient-to-r from-green-500 to-green-600 rounded-lg flex items-center justify-center mr-4">
-                    <Briefcase className="h-6 w-6 text-white" />
+                <div className="flex items-center mb-4 pb-3 border-b border-zinc-100">
+                  <div className="h-7 w-7 bg-zinc-950 text-white rounded-lg flex items-center justify-center mr-2.5 font-mono text-xs">
+                    02
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">2. Practical Application</h3>
-                    <p className="text-gray-600">Real-world scenarios and industry use cases</p>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">Industry Architecture</h3>
+                    <h4 className="text-sm font-bold text-zinc-900">Production Scale Scenarios</h4>
                   </div>
                 </div>
 
                 {/* Real-world Scenarios */}
-                <div className="mb-6">
-                  <h4 className="font-semibold text-gray-900 mb-4">Industry Scenarios</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {application.practicalApplication.realWorldScenarios.map((scenario, index) => (
-                      <div key={index} className="bg-gradient-to-r from-green-50 to-blue-50 rounded-lg p-4 border border-green-200">
-                        <div className="flex items-center mb-2">
-                          <Users className="h-4 w-4 text-green-600 mr-2" />
-                          <span className="text-sm font-medium text-green-800">{scenario.industry}</span>
-                        </div>
-                        <h5 className="font-semibold text-gray-900 mb-2">{scenario.title}</h5>
-                        <p className="text-gray-700 text-sm">{scenario.description}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Concrete Examples */}
-                <div className="mb-6">
-                  <h4 className="font-semibold text-gray-900 mb-3">Concrete Examples</h4>
-                  <div className="space-y-2">
-                    {application.practicalApplication.concreteExamples.map((example, index) => (
-                      <div key={index} className="flex items-start">
-                        <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                        <span className="text-gray-700">{example}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Open-ended Question */}
-                <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-200 mb-6">
-                  <h4 className="font-semibold text-yellow-900 mb-2 flex items-center">
-                    <Lightbulb className="h-4 w-4 mr-2" />
-                    Think About This
+                <div className="mb-5">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-2.5">
+                    Production Scenarios
                   </h4>
-                  <p className="text-yellow-800">{application.practicalApplication.openEndedQuestion}</p>
-                </div>
-
-                {/* Modifications */}
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3">Real-time System Modifications</h4>
-                  <div className="space-y-2">
-                    {application.practicalApplication.modifications.map((modification, index) => (
-                      <div key={index} className="flex items-start">
-                        <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                        <span className="text-gray-700">{modification}</span>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {application.practicalApplication.realWorldScenarios.map((scenario, index) => (
+                      <div key={index} className="bg-zinc-50/70 rounded-lg p-3.5 border border-zinc-200/70 space-y-1">
+                        <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+                          <Users className="h-3.5 w-3.5 text-zinc-400" />
+                          <span className="font-mono font-medium text-zinc-600">{scenario.industry}</span>
+                        </div>
+                        <h5 className="font-bold text-xs text-zinc-900">{scenario.title}</h5>
+                        <p className="text-zinc-600 text-xs leading-relaxed">{scenario.description}</p>
                       </div>
                     ))}
                   </div>
+                </div>
+
+                {/* Tradeoff Prompt */}
+                <div className="bg-zinc-900 text-white rounded-lg p-4 space-y-1">
+                  <h4 className="text-xs font-semibold uppercase tracking-wider text-amber-400 flex items-center gap-1.5">
+                    <Lightbulb className="h-3.5 w-3.5" />
+                    Architectural Tradeoff Prompt
+                  </h4>
+                  <p className="text-xs text-zinc-300 leading-relaxed">
+                    {application.practicalApplication.openEndedQuestion}
+                  </p>
                 </div>
               </Card>
 
               {/* 3. Reframed Problem */}
               <Card>
-                <div className="flex items-center mb-6">
-                  <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mr-4">
-                    <Globe className="h-6 w-6 text-white" />
+                <div className="flex items-center mb-4 pb-3 border-b border-zinc-100">
+                  <div className="h-7 w-7 bg-zinc-950 text-white rounded-lg flex items-center justify-center mr-2.5 font-mono text-xs">
+                    03
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900">3. Reframed Problem</h3>
-                    <p className="text-gray-600">Software engineering challenge version</p>
+                    <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">System Formulation</h3>
+                    <h4 className="text-sm font-bold text-zinc-900">{application.reframedProblem.title}</h4>
                   </div>
                 </div>
 
-                <div className="space-y-6">
-                  {/* Problem Description */}
-                  <div>
-                    <h4 className="text-lg font-semibold text-gray-900 mb-3">{application.reframedProblem.title}</h4>
-                    <p className="text-gray-700 mb-4">{application.reframedProblem.description}</p>
-                  </div>
+                <div className="space-y-4">
+                  <p className="text-xs text-zinc-700 leading-relaxed">
+                    {application.reframedProblem.description}
+                  </p>
 
                   {/* API Specification */}
                   {application.reframedProblem.apiSpec && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                        <Code className="h-4 w-4 mr-2" />
-                        API Specification
-                      </h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div className="bg-zinc-950 text-zinc-100 rounded-lg p-4 border border-zinc-800 space-y-2">
+                      <div className="flex items-center gap-2 text-xs font-mono font-semibold text-zinc-300 pb-2 border-b border-zinc-800">
+                        <Code className="h-3.5 w-3.5 text-emerald-400" />
+                        <span>API Contract Specification</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-mono">
                         <div>
-                          <span className="font-medium">Endpoint:</span> 
-                          <code className="ml-2 px-2 py-1 bg-gray-200 rounded">{application.reframedProblem.apiSpec.endpoint}</code>
+                          <span className="text-zinc-500">Endpoint:</span>{' '}
+                          <code className="text-emerald-400">{application.reframedProblem.apiSpec.endpoint}</code>
                         </div>
                         <div>
-                          <span className="font-medium">Method:</span> 
-                          <code className="ml-2 px-2 py-1 bg-gray-200 rounded">{application.reframedProblem.apiSpec.method}</code>
+                          <span className="text-zinc-500">Method:</span>{' '}
+                          <code className="text-amber-400">{application.reframedProblem.apiSpec.method}</code>
                         </div>
-                        <div>
-                          <span className="font-medium">Request:</span> 
-                          <code className="ml-2 px-2 py-1 bg-gray-200 rounded text-xs">{application.reframedProblem.apiSpec.requestFormat}</code>
+                        <div className="sm:col-span-2">
+                          <span className="text-zinc-500 block mb-1">Request Payload:</span>
+                          <pre className="p-2 bg-zinc-900 rounded text-[11px] overflow-x-auto text-zinc-300">
+                            {application.reframedProblem.apiSpec.requestFormat}
+                          </pre>
                         </div>
-                        <div>
-                          <span className="font-medium">Response:</span> 
-                          <code className="ml-2 px-2 py-1 bg-gray-200 rounded text-xs">{application.reframedProblem.apiSpec.responseFormat}</code>
+                        <div className="sm:col-span-2">
+                          <span className="text-zinc-500 block mb-1">Response Payload:</span>
+                          <pre className="p-2 bg-zinc-900 rounded text-[11px] overflow-x-auto text-zinc-300">
+                            {application.reframedProblem.apiSpec.responseFormat}
+                          </pre>
                         </div>
                       </div>
                     </div>
                   )}
 
                   {/* Constraints, Edge Cases, System Design */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                        <Clock className="h-4 w-4 mr-2 text-red-500" />
-                        Constraints
-                      </h4>
-                      <div className="space-y-2">
-                        {application.reframedProblem.constraints.map((constraint, index) => (
-                          <div key={index} className="flex items-start">
-                            <span className="w-2 h-2 bg-red-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                            <span className="text-gray-700 text-sm">{constraint}</span>
-                          </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                        <Clock className="h-3.5 w-3.5 mr-1 text-zinc-500" />
+                        SLAs &amp; Constraints
+                      </h5>
+                      <ul className="space-y-1 text-xs text-zinc-700">
+                        {application.reframedProblem.constraints.map((c, i) => (
+                          <li key={i} className="flex items-start">
+                            <span className="text-zinc-400 mr-1.5 font-mono">•</span>
+                            <span>{c}</span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
 
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                        <Shield className="h-4 w-4 mr-2 text-yellow-500" />
-                        Edge Cases
-                      </h4>
-                      <div className="space-y-2">
-                        {application.reframedProblem.edgeCases.map((edgeCase, index) => (
-                          <div key={index} className="flex items-start">
-                            <span className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                            <span className="text-gray-700 text-sm">{edgeCase}</span>
-                          </div>
+                    <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                        <Shield className="h-3.5 w-3.5 mr-1 text-zinc-500" />
+                        Edge Scenarios
+                      </h5>
+                      <ul className="space-y-1 text-xs text-zinc-700">
+                        {application.reframedProblem.edgeCases.map((e, i) => (
+                          <li key={i} className="flex items-start">
+                            <span className="text-zinc-400 mr-1.5 font-mono">•</span>
+                            <span>{e}</span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
 
-                    <div>
-                      <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-                        <BarChart className="h-4 w-4 mr-2 text-blue-500" />
-                        System Design
-                      </h4>
-                      <div className="space-y-2">
-                        {application.reframedProblem.systemDesignConsiderations.map((consideration, index) => (
-                          <div key={index} className="flex items-start">
-                            <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                            <span className="text-gray-700 text-sm">{consideration}</span>
-                          </div>
+                    <div className="p-3 bg-zinc-50 rounded-lg border border-zinc-200/70 space-y-2">
+                      <h5 className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500 flex items-center">
+                        <BarChart className="h-3.5 w-3.5 mr-1 text-zinc-500" />
+                        System Architecture
+                      </h5>
+                      <ul className="space-y-1 text-xs text-zinc-700">
+                        {application.reframedProblem.systemDesignConsiderations.map((s, i) => (
+                          <li key={i} className="flex items-start">
+                            <span className="text-zinc-400 mr-1.5 font-mono">•</span>
+                            <span>{s}</span>
+                          </li>
                         ))}
-                      </div>
+                      </ul>
                     </div>
                   </div>
                 </div>
               </Card>
-
-              {/* Footer */}
-              <div className="text-center py-6 border-t border-gray-200">
-                <p className="text-sm text-gray-500">
-                  Generated by Gemini AI • {application.generatedAt.toLocaleString()}
-                </p>
-              </div>
             </div>
           )}
         </div>

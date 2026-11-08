@@ -1,7 +1,6 @@
 import React from 'react';
-import { Download, FileText, RotateCcw, Trophy, Clock, Target } from 'lucide-react';
+import { Download, FileText, RotateCcw, CheckCircle2, X } from 'lucide-react';
 import Button from '../ui/Button';
-import Card from '../ui/Card';
 
 interface SummaryData {
   problemTitle: string;
@@ -45,8 +44,6 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
   };
 
   const exportAsPDF = () => {
-    // Create a formatted text version for now
-    // In production, you'd use a PDF library like jsPDF
     const content = generateSummaryText();
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -103,118 +100,108 @@ const SessionSummary: React.FC<SessionSummaryProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          {/* Header */}
-          <div className="text-center mb-6">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-green-400 to-blue-500 rounded-full mb-4">
-              <Trophy className="h-8 w-8 text-white" />
+    <div className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-xl border border-zinc-200/90 w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <CheckCircle2 className="h-4 w-4" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">
-              🎉 Congratulations!
-            </h2>
-            <p className="text-gray-600">
-              You've successfully completed the SSA Coaching Session for
-            </p>
-            <h3 className="text-xl font-semibold text-blue-600 mt-1">
-              {summaryData.problemTitle}
+            <div>
+              <h2 className="text-sm font-bold text-zinc-950">Reasoning Session Complete</h2>
+              <p className="text-xs text-zinc-500">{summaryData.problemTitle}</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-6 overflow-y-auto space-y-5 flex-1 custom-scrollbar">
+          {/* Metadata banner */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 bg-zinc-50 border border-zinc-200/70 rounded-xl">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block mb-0.5">Time Invested</span>
+              <span className="text-sm font-bold font-mono text-zinc-900">{formatTime(summaryData.totalTime)}</span>
+            </div>
+            <div className="p-3 bg-zinc-50 border border-zinc-200/70 rounded-xl">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block mb-0.5">Stages Validated</span>
+              <span className="text-sm font-bold font-mono text-emerald-700">5 of 5 Stages (100%)</span>
+            </div>
+          </div>
+
+          {/* Stage breakdown */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Pipeline Stage Review
             </h3>
-          </div>
 
-          {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <Card className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Clock className="h-5 w-5 text-blue-600 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Total Time</span>
-              </div>
-              <div className="text-2xl font-bold text-blue-600">
-                {formatTime(summaryData.totalTime)}
-              </div>
-            </Card>
-
-            <Card className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Target className="h-5 w-5 text-green-600 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Stages Completed</span>
-              </div>
-              <div className="text-2xl font-bold text-green-600">5/5</div>
-            </Card>
-
-            <Card className="text-center">
-              <div className="flex items-center justify-center mb-2">
-                <Trophy className="h-5 w-5 text-amber-600 mr-2" />
-                <span className="text-sm font-medium text-gray-700">Achievement</span>
-              </div>
-              <div className="text-lg font-bold text-amber-600">Problem Solver</div>
-            </Card>
-          </div>
-
-          {/* Summary Report */}
-          <Card title="📄 Summary Report">
-            <div className="space-y-6">
-              {Object.entries(summaryData.stageResponses).map(([stageId, response]) => (
-                <div key={stageId} className="border-l-4 border-blue-500 pl-4">
-                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
+            {Object.entries(summaryData.stageResponses).map(([stageId, response]) => (
+              <div key={stageId} className="p-3.5 bg-zinc-50/70 border border-zinc-200/80 rounded-xl space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-zinc-900">
                     Stage {stageId}: {stageNames[parseInt(stageId) as keyof typeof stageNames]}
-                  </h4>
-                  
-                  <div className="mb-3">
-                    <h5 className="text-sm font-medium text-gray-700 mb-1">Your Response:</h5>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-800">{response.userAnswer}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h5 className="text-sm font-medium text-gray-700 mb-1">AI Feedback:</h5>
-                    <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                      <p className="text-sm text-green-800">{response.assistantFeedback}</p>
-                    </div>
-                  </div>
+                  </span>
+                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200/60">
+                    Validated
+                  </span>
                 </div>
-              ))}
-            </div>
-          </Card>
 
-          {/* Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <div className="bg-white p-2.5 rounded-lg border border-zinc-200/60">
+                  <span className="text-[10px] font-semibold uppercase text-zinc-400 block mb-1">Your Formulation</span>
+                  <p className="text-zinc-700 leading-relaxed">{response.userAnswer}</p>
+                </div>
+
+                <div className="bg-zinc-100/70 p-2.5 rounded-lg border border-zinc-200/60">
+                  <span className="text-[10px] font-semibold uppercase text-zinc-500 block mb-1">Coach Verification</span>
+                  <p className="text-zinc-600 leading-relaxed">{response.assistantFeedback}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Footer actions */}
+        <div className="px-6 py-3.5 border-t border-zinc-100 bg-zinc-50/50 flex items-center justify-between">
+          <div className="flex items-center space-x-2">
             <Button
-              onClick={exportAsPDF}
-              leftIcon={<Download className="h-4 w-4" />}
-              className="flex-1"
-            >
-              Export as Text
-            </Button>
-            
-            <Button
-              onClick={exportAsMarkdown}
               variant="outline"
-              leftIcon={<FileText className="h-4 w-4" />}
-              className="flex-1"
+              size="sm"
+              onClick={exportAsMarkdown}
+              leftIcon={<Download className="h-3.5 w-3.5" />}
             >
-              Export as Markdown
+              Export Markdown
             </Button>
-            
             <Button
-              onClick={onResetSession}
-              variant="secondary"
-              leftIcon={<RotateCcw className="h-4 w-4" />}
-              className="flex-1"
+              variant="outline"
+              size="sm"
+              onClick={exportAsPDF}
+              leftIcon={<FileText className="h-3.5 w-3.5" />}
             >
-              Try Another Problem
+              Export Text
             </Button>
           </div>
 
-          {/* Close Button */}
-          <div className="text-center mt-4">
+          <div className="flex items-center space-x-2">
             <Button
-              onClick={onClose}
               variant="ghost"
-              className="text-gray-500 hover:text-gray-700"
+              size="sm"
+              onClick={onResetSession}
+              leftIcon={<RotateCcw className="h-3.5 w-3.5" />}
             >
-              Close Summary
+              Solve Again
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={onClose}
+            >
+              Done
             </Button>
           </div>
         </div>

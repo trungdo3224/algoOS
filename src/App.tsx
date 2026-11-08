@@ -3,6 +3,7 @@ import { Provider } from 'react-redux';
 import { store } from './store/store';
 import AppLayout from './components/layout/AppLayout';
 import { checkSession } from './features/user/userSlice';
+import { ThemeProvider } from './context/ThemeContext';
 
 function App() {
   useEffect(() => {
@@ -11,7 +12,9 @@ function App() {
 
   return (
     <Provider store={store}>
-      <AppLayout />
+      <ThemeProvider>
+        <AppLayout />
+      </ThemeProvider>
     </Provider>
   );
 }

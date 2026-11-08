@@ -13,44 +13,60 @@ interface PatternAnalysisProps {
 }
 
 const PatternAnalysis: React.FC<PatternAnalysisProps> = ({ data }) => {
-  const maxScore = Math.max(...data.map(d => d.score));
-
   return (
-    <Card title="Pattern Analysis">
-      <div className="space-y-4">
-        {data.map((pattern) => (
-          <div key={pattern.name}>
-            <div className="flex items-center justify-between mb-1">
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-700">{pattern.name}</span>
-                <span className="ml-2 text-xs text-gray-500">
-                  ({pattern.problemCount} problems)
-                </span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-900">
-                  {pattern.score.toFixed(1)}/10
-                </span>
-                <span
-                  className={`text-xs ${
-                    pattern.trend > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}
-                >
-                  {pattern.trend > 0 ? '↑' : '↓'} {Math.abs(pattern.trend)}%
-                </span>
-              </div>
-            </div>
-            <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div
-                className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 to-blue-600 rounded-full"
-                style={{ width: `${(pattern.score / 10) * 100}%` }}
-              >
-                <div className="absolute inset-0 bg-white bg-opacity-20"></div>
-              </div>
-            </div>
-          </div>
-        ))}
+    <Card>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold tracking-tight text-zinc-900">Pattern Mastery Index</h3>
+          <p className="text-xs text-zinc-500 mt-0.5">Algorithmic approach ratings & velocity</p>
+        </div>
+        <span className="text-xs font-mono text-zinc-500 bg-zinc-100 px-2 py-0.5 rounded">
+          {data.length} tracked
+        </span>
       </div>
+
+      {data.length === 0 ? (
+        <div className="py-8 text-center text-zinc-400 text-xs">
+          No pattern insights available yet.
+        </div>
+      ) : (
+        <div className="space-y-3.5">
+          {data.map((pattern) => {
+            const isPositive = pattern.trend > 0;
+            const pct = Math.min(100, Math.max(0, (pattern.score / 10) * 100));
+            return (
+              <div key={pattern.name} className="space-y-1">
+                <div className="flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-medium text-zinc-800">{pattern.name}</span>
+                    <span className="text-[11px] text-zinc-400 font-mono">
+                      ({pattern.problemCount} solved)
+                    </span>
+                  </div>
+                  <div className="flex items-baseline gap-2 tabular-nums">
+                    <span className="font-semibold text-zinc-900">
+                      {pattern.score.toFixed(1)}<span className="text-zinc-400 text-[10px]">/10</span>
+                    </span>
+                    <span
+                      className={`text-[11px] font-mono font-medium ${
+                        isPositive ? 'text-emerald-600' : 'text-rose-600'
+                      }`}
+                    >
+                      {isPositive ? '↑' : '↓'}{Math.abs(Math.round(pattern.trend))}%
+                    </span>
+                  </div>
+                </div>
+                <div className="h-1.5 bg-zinc-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </Card>
   );
 };

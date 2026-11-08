@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Tag, Clock, BarChart, ChevronDown, ChevronUp, Code, FileText, Eye, EyeOff, BookOpen } from 'lucide-react';
+import { Clock, ChevronDown, ChevronUp } from 'lucide-react';
 import Card from '../ui/Card';
 
 interface ProblemStatementProps {
@@ -26,183 +26,112 @@ const ProblemStatement: React.FC<ProblemStatementProps> = ({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showDetails, setShowDetails] = useState(true);
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
+  const getDifficultyBadge = (diff: string) => {
+    switch (diff.toLowerCase()) {
       case 'easy':
-        return 'text-green-600 bg-green-50 border-green-200';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200/80';
       case 'medium':
-        return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+        return 'bg-amber-50 text-amber-800 border-amber-200/80';
       case 'hard':
-        return 'text-red-600 bg-red-50 border-red-200';
+        return 'bg-rose-50 text-rose-700 border-rose-200/80';
       default:
-        return 'text-gray-600 bg-gray-50 border-gray-200';
+        return 'bg-zinc-100 text-zinc-700 border-zinc-200';
     }
   };
-
-  const getTagIcon = (tag: string) => {
-    switch (tag.toLowerCase()) {
-      case 'array':
-        return <Code className="h-3 w-3" />;
-      case 'dynamic programming':
-        return <FileText className="h-3 w-3" />;
-      default:
-        return <Tag className="h-3 w-3" />;
-    }
-  };
-
-  const difficultyColor = getDifficultyColor(difficulty);
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <div className="relative">
-          <div className="absolute -top-6 -right-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
-              <BarChart className="h-6 w-6 text-white" />
-            </div>
-          </div>
-
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold text-gray-900">{title}</h2>
-            <div className="flex flex-wrap items-center mt-2 gap-2">
-              <span
-                className={`text-xs font-medium px-2.5 py-0.5 rounded-full border ${difficultyColor}`}
-              >
-                {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
-              </span>
-              <span className="flex items-center text-xs text-gray-500">
-                <Clock className="h-3 w-3 mr-1" />
-                {timeEstimate}
-              </span>
-            </div>
-          </div>
-          
-          <div className={`prose prose-sm max-w-none ${!isExpanded && 'line-clamp-3'}`}>
-            <p className="text-gray-700">{description}</p>
-          </div>
-          
-          {description.length > 150 && (
-            <button
-              onClick={() => setIsExpanded(!isExpanded)}
-              className="text-blue-600 hover:text-blue-700 text-sm font-medium flex items-center mt-2"
+    <Card className="mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-3 pb-3 border-b border-zinc-100">
+        <div>
+          <h2 className="text-lg font-bold tracking-tight text-zinc-950">{title}</h2>
+          <div className="flex flex-wrap items-center mt-2 gap-2">
+            <span
+              className={`text-[11px] font-semibold px-2 py-0.5 rounded-md border ${getDifficultyBadge(difficulty)}`}
             >
-              {isExpanded ? (
-                <>
-                  Show less
-                  <ChevronUp className="h-4 w-4 ml-1" />
-                </>
-              ) : (
-                <>
-                  Read more
-                  <ChevronDown className="h-4 w-4 ml-1" />
-                </>
-              )}
-            </button>
-          )}
-          
-          <div className="mt-4 flex items-center flex-wrap gap-2">
-            {tags.map((tag, index) => (
-              <div
-                key={index}
-                className="flex items-center space-x-1 bg-blue-50 text-blue-700 px-2 py-1 rounded-md text-xs font-medium"
+              {difficulty.charAt(0).toUpperCase() + difficulty.slice(1)}
+            </span>
+            <span className="flex items-center text-xs text-zinc-500 font-mono">
+              <Clock className="h-3 w-3 mr-1 text-zinc-400" />
+              {timeEstimate}
+            </span>
+          </div>
+        </div>
+
+        {tags && tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 self-start">
+            {tags.map((tag, idx) => (
+              <span
+                key={idx}
+                className="text-[11px] font-medium text-zinc-600 bg-zinc-100 border border-zinc-200/60 px-2 py-0.5 rounded-md"
               >
-                {getTagIcon(tag)}
-                <span>{tag}</span>
-              </div>
+                {tag}
+              </span>
             ))}
           </div>
+        )}
+      </div>
+      
+      {/* Description */}
+      <div className="space-y-3 text-xs leading-relaxed text-zinc-700">
+        <div className={!isExpanded && description.length > 250 ? 'line-clamp-3' : ''}>
+          <p className="whitespace-pre-line">{description}</p>
         </div>
-      </Card>
-
-      {/* Problem Details Section */}
-      <Card>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-medium text-gray-900">Problem Details</h3>
+        
+        {description.length > 250 && (
           <button
-            onClick={() => setShowDetails(!showDetails)}
-            className="flex items-center text-sm text-blue-600 hover:text-blue-700 font-medium"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="text-zinc-900 hover:text-black font-semibold text-xs inline-flex items-center gap-1 focus:outline-none"
           >
-            {showDetails ? (
-              <>
-                <EyeOff className="h-4 w-4 mr-1" />
-                Hide Details
-              </>
+            {isExpanded ? (
+              <>Show less <ChevronUp className="h-3.5 w-3.5" /></>
             ) : (
-              <>
-                <Eye className="h-4 w-4 mr-1" />
-                Show Details
-              </>
+              <>Read full description <ChevronDown className="h-3.5 w-3.5" /></>
             )}
           </button>
-        </div>
+        )}
+      </div>
 
-        {showDetails && (
-          <div className="space-y-6">
-            {/* Problem Description */}
-            {description && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <BookOpen className="h-4 w-4 mr-2 text-blue-600" />
-                  Description
-                </h4>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <div className="text-sm text-blue-800 whitespace-pre-wrap leading-relaxed">
-                    {description}
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* Examples & Constraints Accordion */}
+      {(exampleInput || exampleOutput || constraints) && (
+        <div className="mt-4 pt-3 border-t border-zinc-100">
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center justify-between w-full text-xs font-semibold uppercase tracking-wider text-zinc-500 hover:text-zinc-900 transition-colors"
+          >
+            <span>Examples & Constraints</span>
+            {showDetails ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </button>
 
-            {/* Example Input/Output */}
-            {(exampleInput || exampleOutput) && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <Code className="h-4 w-4 mr-2 text-green-600" />
-                  Example
-                </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {showDetails && (
+            <div className="mt-3 space-y-3 font-mono text-xs">
+              {(exampleInput || exampleOutput) && (
+                <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-lg space-y-2">
                   {exampleInput && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Input
-                      </div>
-                      <pre className="text-sm text-gray-800 font-mono whitespace-pre-wrap">
-                        {exampleInput}
-                      </pre>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-zinc-400 block mb-0.5">Example Input</span>
+                      <pre className="text-zinc-800 bg-white p-2 rounded border border-zinc-200/60 text-xs overflow-x-auto">{exampleInput}</pre>
                     </div>
                   )}
                   {exampleOutput && (
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-2">
-                        Output
-                      </div>
-                      <pre className="text-sm text-gray-800 font-mono whitespace-pre-wrap">
-                        {exampleOutput}
-                      </pre>
+                    <div>
+                      <span className="text-[10px] uppercase font-semibold text-zinc-400 block mb-0.5">Example Output</span>
+                      <pre className="text-zinc-800 bg-white p-2 rounded border border-zinc-200/60 text-xs overflow-x-auto">{exampleOutput}</pre>
                     </div>
                   )}
                 </div>
-              </div>
-            )}
+              )}
 
-            {/* Constraints */}
-            {constraints && (
-              <div>
-                <h4 className="text-sm font-medium text-gray-900 mb-3 flex items-center">
-                  <FileText className="h-4 w-4 mr-2 text-amber-600" />
-                  Constraints
-                </h4>
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                  <div className="text-sm text-amber-800 whitespace-pre-wrap">
-                    {constraints}
-                  </div>
+              {constraints && (
+                <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-lg">
+                  <span className="text-[10px] uppercase font-semibold text-zinc-400 block mb-1">Constraints</span>
+                  <div className="text-zinc-700 text-xs whitespace-pre-line leading-relaxed">{constraints}</div>
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-      </Card>
-    </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
   );
 };
 

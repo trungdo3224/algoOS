@@ -7,20 +7,25 @@ import { useRevisionHistory, useUserSubmissions, useUserInsights } from '../hook
 import { useAppSelector } from '../hooks/reduxHooks';
 
 const Revision: React.FC = () => {
-  const { revisions, loading: revisionsLoading } = useRevisionHistory();
+  const { loading: revisionsLoading } = useRevisionHistory();
   const { submissions, loading: submissionsLoading } = useUserSubmissions();
   const { insights, loading: insightsLoading } = useUserInsights();
-  const { problems, stats } = useAppSelector(state => state.problems);
+  const { problems } = useAppSelector(state => state.problems);
   
   const handleStartRevision = async (id: string) => {
+    // Persist selected problem ID so SSA coaching will load it immediately
+    localStorage.setItem('ssa-selected-problem-id', id);
     // Navigate to SSA coaching with the selected problem
     window.location.href = `/ssa-coaching?problem=${id}`;
   };
 
   if (revisionsLoading || submissionsLoading || insightsLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-2 border-zinc-900 border-t-transparent animate-spin" />
+          <span className="text-xs font-mono text-zinc-500">Synthesizing revision metrics...</span>
+        </div>
       </div>
     );
   }
@@ -55,12 +60,12 @@ const Revision: React.FC = () => {
     // 2. Problems in weak pattern areas
     const weakPatterns = insights?.filter(i => i.avg_score < 6).map(i => i.tag) || [];
     const patternWeakProblems = problems.filter(p => 
-      p.tags.some(tag => weakPatterns.includes(tag)) && 
+      (p.tags || []).some(tag => weakPatterns.includes(tag)) && 
       !lowScoreProblems.some(lp => lp.problem_id === p.problem_id)
     );
 
     patternWeakProblems.forEach(problem => {
-      const weakTags = problem.tags.filter(tag => weakPatterns.includes(tag));
+      const weakTags = (problem.tags || []).filter(tag => weakPatterns.includes(tag));
       const relatedSubmissions = submissions?.filter(s => s.problem_id === problem.problem_id) || [];
       const avgScore = relatedSubmissions.length > 0 
         ? relatedSubmissions.reduce((sum, s) => sum + (s.grader_score || 0), 0) / relatedSubmissions.length 
@@ -158,193 +163,254 @@ const Revision: React.FC = () => {
   const weakestPatterns = insights?.filter(i => i.avg_score < 6).slice(0, 3).map(i => i.tag) || [];
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Intelligent Revision</h1>
-        <p className="text-gray-600 mb-8">
-          AI-powered revision suggestions based on your performance data, learning patterns, and skill gaps.
+    <div className="space-y-8 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="border-b border-zinc-200/80 pb-5">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="px-2 py-0.5 text-[11px] font-mono font-medium uppercase tracking-wider text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">
+            Spaced Repetition Engine
+          </span>
+          <span className="text-zinc-300">•</span>
+          <span className="text-xs text-zinc-500 font-mono">
+            {totalProblemsNeedingRevision} queued items
+          </span>
+        </div>
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
+          Intelligent Revision
+        </h1>
+        <p className="text-sm text-zinc-500 mt-1 max-w-2xl">
+          Adaptive spaced review schedule prioritized by score volatility, historical retention curves, and algorithmic pattern gaps.
         </p>
       </div>
       
       {/* Revision Overview Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white">
-          <div className="flex items-center">
-            <div className="rounded-full bg-white bg-opacity-20 p-3 mr-4">
-              <TrendingDown className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-white text-opacity-90 font-medium">Low Score Problems</p>
-              <h3 className="text-2xl font-bold">{lowScoreCount}</h3>
-              <p className="text-xs text-white text-opacity-75 mt-1">Avg: {averageRevisionScore.toFixed(1)}/10</p>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500">Low Score Problems</span>
+            <div className="p-2 rounded-lg bg-rose-50 border border-rose-200/60 text-rose-600">
+              <TrendingDown className="h-4 w-4" />
             </div>
           </div>
-        </Card>
+          <div className="mt-3">
+            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-900 tabular-nums">
+              {lowScoreCount}
+            </div>
+            <p className="text-xs text-zinc-400 font-mono mt-1">
+              Avg score: {averageRevisionScore.toFixed(1)}/10
+            </p>
+          </div>
+        </div>
 
-        <Card className="bg-gradient-to-br from-yellow-500 to-yellow-600 text-white">
-          <div className="flex items-center">
-            <div className="rounded-full bg-white bg-opacity-20 p-3 mr-4">
-              <AlertTriangle className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-white text-opacity-90 font-medium">Pattern Weaknesses</p>
-              <h3 className="text-2xl font-bold">{patternWeaknessCount}</h3>
-              <p className="text-xs text-white text-opacity-75 mt-1">{weakestPatterns.slice(0, 2).join(', ')}</p>
+        <div className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500">Pattern Weaknesses</span>
+            <div className="p-2 rounded-lg bg-amber-50 border border-amber-200/60 text-amber-600">
+              <AlertTriangle className="h-4 w-4" />
             </div>
           </div>
-        </Card>
+          <div className="mt-3">
+            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-900 tabular-nums">
+              {patternWeaknessCount}
+            </div>
+            <p className="text-xs text-zinc-400 font-mono mt-1 truncate">
+              {weakestPatterns.length > 0 ? weakestPatterns.slice(0, 2).join(', ') : 'None detected'}
+            </p>
+          </div>
+        </div>
 
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-          <div className="flex items-center">
-            <div className="rounded-full bg-white bg-opacity-20 p-3 mr-4">
-              <Clock className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-white text-opacity-90 font-medium">Need Review</p>
-              <h3 className="text-2xl font-bold">{needReviewCount}</h3>
-              <p className="text-xs text-white text-opacity-75 mt-1">Not practiced recently</p>
+        <div className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500">Need Review</span>
+            <div className="p-2 rounded-lg bg-blue-50 border border-blue-200/60 text-blue-600">
+              <Clock className="h-4 w-4" />
             </div>
           </div>
-        </Card>
+          <div className="mt-3">
+            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-900 tabular-nums">
+              {needReviewCount}
+            </div>
+            <p className="text-xs text-zinc-400 font-mono mt-1">
+              Interval threshold (&gt;14d)
+            </p>
+          </div>
+        </div>
 
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-          <div className="flex items-center">
-            <div className="rounded-full bg-white bg-opacity-20 p-3 mr-4">
-              <Repeat className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-white text-opacity-90 font-medium">Multiple Attempts</p>
-              <h3 className="text-2xl font-bold">{multipleAttemptsCount}</h3>
-              <p className="text-xs text-white text-opacity-75 mt-1">Still struggling</p>
+        <div className="bg-white border border-zinc-200/80 rounded-xl p-5 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-zinc-500">Multiple Attempts</span>
+            <div className="p-2 rounded-lg bg-zinc-100 border border-zinc-200/80 text-zinc-700">
+              <Repeat className="h-4 w-4" />
             </div>
           </div>
-        </Card>
+          <div className="mt-3">
+            <div className="text-2xl font-bold font-mono tracking-tight text-zinc-900 tabular-nums">
+              {multipleAttemptsCount}
+            </div>
+            <p className="text-xs text-zinc-400 font-mono mt-1">
+              High-friction challenges
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Revision Insights */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card title="📊 Revision Analytics">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-blue-50 rounded-lg">
+        <Card title="Revision Diagnostics">
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3.5 bg-zinc-50/70 border border-zinc-200/70 rounded-lg">
               <div>
-                <h4 className="font-medium text-blue-900">Total Problems Needing Revision</h4>
-                <p className="text-sm text-blue-700">Based on performance analysis</p>
+                <h4 className="text-sm font-semibold text-zinc-900">Total Problems In Queue</h4>
+                <p className="text-xs text-zinc-500">Synthesized from submission performance</p>
               </div>
-              <div className="text-2xl font-bold text-blue-600">{totalProblemsNeedingRevision}</div>
+              <div className="text-xl font-bold font-mono text-zinc-900 tabular-nums">
+                {totalProblemsNeedingRevision}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-red-50 rounded-lg">
+            <div className="flex items-center justify-between p-3.5 bg-rose-50/40 border border-rose-200/60 rounded-lg">
               <div>
-                <h4 className="font-medium text-red-900">High Priority Items</h4>
-                <p className="text-sm text-red-700">Require immediate attention</p>
+                <h4 className="text-sm font-semibold text-rose-950">High Priority Action Items</h4>
+                <p className="text-xs text-rose-700">Require immediate concept reinforcement</p>
               </div>
-              <div className="text-2xl font-bold text-red-600">{highPriorityCount}</div>
+              <div className="text-xl font-bold font-mono text-rose-600 tabular-nums">
+                {highPriorityCount}
+              </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg">
+            <div className="flex items-center justify-between p-3.5 bg-emerald-50/40 border border-emerald-200/60 rounded-lg">
               <div>
-                <h4 className="font-medium text-green-900">Potential Score Improvement</h4>
-                <p className="text-sm text-green-700">With focused revision</p>
+                <h4 className="text-sm font-semibold text-emerald-950">Potential Rating Headroom</h4>
+                <p className="text-xs text-emerald-700">Estimated gain with targeted revision cycle</p>
               </div>
-              <div className="text-2xl font-bold text-green-600">+{(10 - averageRevisionScore).toFixed(1)}</div>
+              <div className="text-xl font-bold font-mono text-emerald-600 tabular-nums">
+                +{(10 - averageRevisionScore).toFixed(1)}
+              </div>
             </div>
           </div>
         </Card>
 
-        <Card title="🎯 Smart Learning Path">
-          <div className="space-y-4">
-            <div className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg border border-purple-200">
-              <h4 className="font-medium text-purple-900 mb-2">Recommended Focus Areas</h4>
-              <div className="space-y-2">
-                {weakestPatterns.slice(0, 3).map((pattern, index) => (
-                  <div key={index} className="flex items-center">
-                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
-                    <span className="text-sm text-purple-800">{pattern}</span>
-                  </div>
-                ))}
+        <Card title="Smart Learning Plan">
+          <div className="space-y-3.5">
+            <div className="p-3.5 bg-zinc-50/70 border border-zinc-200/70 rounded-lg">
+              <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                Priority Concept Tracks
+              </h4>
+              <div className="flex flex-wrap gap-1.5">
+                {weakestPatterns.length > 0 ? (
+                  weakestPatterns.slice(0, 3).map((pattern, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center text-xs font-mono font-medium px-2 py-0.5 rounded bg-white border border-zinc-200/80 text-zinc-800"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1.5" />
+                      {pattern}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-zinc-500">No weak patterns identified</span>
+                )}
               </div>
             </div>
 
-            <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
-              <h4 className="font-medium text-green-900 mb-2">Study Strategy</h4>
-              <ul className="text-sm text-green-800 space-y-1">
-                <li>• Start with high-priority problems</li>
-                <li>• Focus on pattern recognition</li>
-                <li>• Use SSA coaching for guidance</li>
-                <li>• Review after 3-7 days</li>
+            <div className="p-3.5 bg-zinc-50/70 border border-zinc-200/70 rounded-lg">
+              <h4 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                Execution Protocol
+              </h4>
+              <ul className="text-xs text-zinc-600 space-y-1 font-mono">
+                <li className="flex items-center gap-2">
+                  <span className="text-zinc-400">01.</span> Tackle High-priority items first
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-zinc-400">02.</span> Focus on pattern recognition &amp; invariants
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-zinc-400">03.</span> Utilize SSA coaching for structured hints
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-zinc-400">04.</span> Retest after 3–7 day retention cooldown
+                </li>
               </ul>
             </div>
 
-            <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
-              <h4 className="font-medium text-amber-900 mb-2">Expected Timeline</h4>
-              <p className="text-sm text-amber-800">
-                Complete revision in {Math.ceil(totalProblemsNeedingRevision / 3)} sessions
-                ({Math.ceil(totalProblemsNeedingRevision / 3 * 2)} hours estimated)
-              </p>
+            <div className="flex items-center justify-between p-3 bg-zinc-100/70 border border-zinc-200/70 rounded-lg">
+              <span className="text-xs font-medium text-zinc-600">Expected Cycle Duration:</span>
+              <span className="text-xs font-mono font-semibold text-zinc-900">
+                {Math.ceil(totalProblemsNeedingRevision / 3)} sessions (~{Math.ceil(totalProblemsNeedingRevision / 3 * 2)}h)
+              </span>
             </div>
           </div>
         </Card>
       </div>
       
       {/* Personalized Learning Path */}
-      <Card title="🧠 Personalized Learning Path">
-        <div className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200 mb-6">
-          <h3 className="text-lg font-medium text-blue-900 mb-3">AI-Powered Recommendations</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Brain className="h-6 w-6 text-blue-600" />
-              </div>
-              <h4 className="font-medium text-blue-900">Pattern Mastery</h4>
-              <p className="text-sm text-blue-700">Focus on {weakestPatterns[0] || 'core patterns'}</p>
+      <Card title="Curated Objectives">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/50">
+            <div className="w-9 h-9 rounded-lg bg-zinc-900 text-white flex items-center justify-center mb-3">
+              <Brain className="h-4 w-4" />
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <Target className="h-6 w-6 text-green-600" />
-              </div>
-              <h4 className="font-medium text-green-900">Score Improvement</h4>
-              <p className="text-sm text-green-700">Target +2.5 points average</p>
+            <h4 className="text-sm font-semibold text-zinc-900">Pattern Mastery</h4>
+            <p className="text-xs text-zinc-500 mt-1">
+              Reinforce invariants in {weakestPatterns[0] || 'core algorithm paradigms'}.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/50">
+            <div className="w-9 h-9 rounded-lg bg-zinc-900 text-white flex items-center justify-center mb-3">
+              <Target className="h-4 w-4" />
             </div>
-            <div className="text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                <BookOpen className="h-6 w-6 text-purple-600" />
-              </div>
-              <h4 className="font-medium text-purple-900">Knowledge Gaps</h4>
-              <p className="text-sm text-purple-700">Fill {patternWeaknessCount} weak areas</p>
+            <h4 className="text-sm font-semibold text-zinc-900">Score Improvement</h4>
+            <p className="text-xs text-zinc-500 mt-1">
+              Elevate average problem evaluation score to &gt;8.0 across all categories.
+            </p>
+          </div>
+
+          <div className="p-4 rounded-xl border border-zinc-200/80 bg-zinc-50/50">
+            <div className="w-9 h-9 rounded-lg bg-zinc-900 text-white flex items-center justify-center mb-3">
+              <BookOpen className="h-4 w-4" />
             </div>
+            <h4 className="text-sm font-semibold text-zinc-900">Knowledge Gaps</h4>
+            <p className="text-xs text-zinc-500 mt-1">
+              Address {patternWeaknessCount} identified weakness areas systematically.
+            </p>
           </div>
         </div>
       </Card>
       
       {/* Revision Suggestions */}
       <div>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-900">Recommended Problems</h2>
-          <div className="text-sm text-gray-500">
-            Sorted by priority and impact potential
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h2 className="text-lg font-semibold text-zinc-900">Recommended Problems</h2>
+            <p className="text-xs text-zinc-500">Ordered by priority weight and impact potential</p>
           </div>
+          <span className="text-xs font-mono text-zinc-500">
+            {revisionSuggestions.length} items
+          </span>
         </div>
 
         {revisionSuggestions.length === 0 ? (
           <Card>
             <div className="text-center py-12">
-              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Trophy className="h-8 w-8 text-green-600" />
+              <div className="w-12 h-12 bg-zinc-100 rounded-full flex items-center justify-center mx-auto mb-3 text-zinc-700">
+                <Trophy className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Great Job!</h3>
-              <p className="text-gray-600 mb-4">
-                No problems need revision right now. Your performance is consistent across all areas.
+              <h3 className="text-base font-semibold text-zinc-900 mb-1">Queue Clear</h3>
+              <p className="text-xs text-zinc-500 max-w-sm mx-auto mb-5">
+                No problems currently meet the threshold for revision. Your retention across active patterns is stable.
               </p>
               <Button
                 onClick={() => window.location.href = '/ssa-coaching'}
-                rightIcon={<ArrowRight className="h-4 w-4" />}
+                rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
+                size="sm"
               >
                 Practice New Problems
               </Button>
             </div>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {revisionSuggestions.map((suggestion, index) => (
               <RevisionSuggestion
                 key={`${suggestion.problem.problem_id}-${index}`}
@@ -366,50 +432,50 @@ const Revision: React.FC = () => {
       </div>
 
       {/* Study Tips */}
-      <Card title="💡 Revision Tips">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <Card title="Retention Guidelines">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
           <div>
-            <h4 className="font-medium text-gray-900 mb-3">Effective Revision Strategy</h4>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Start with high-priority problems to maximize impact
+            <h4 className="font-semibold text-zinc-900 mb-2">Effective Revision Routine</h4>
+            <ul className="space-y-1.5 text-zinc-600 font-mono">
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                <span>Start with high-priority items to prevent memory decay</span>
               </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Use SSA coaching for guided problem-solving
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                <span>Use Socratic coaching rather than memorizing template code</span>
               </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Focus on understanding patterns, not memorizing solutions
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                <span>Formulate the invariant before coding the solution</span>
               </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Review problems after 3-7 days for better retention
+              <li className="flex items-start gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                <span>Review problems after 3–7 days for optimal consolidation</span>
               </li>
             </ul>
           </div>
           
           <div>
-            <h4 className="font-medium text-gray-900 mb-3">Spaced Repetition</h4>
-            <ul className="space-y-2 text-sm text-gray-700">
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Day 1: Initial revision session
-              </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Day 3: Quick review and practice
-              </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Day 7: Comprehensive re-attempt
-              </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                Day 21: Final mastery check
-              </li>
-            </ul>
+            <h4 className="font-semibold text-zinc-900 mb-2">Spaced Repetition Schedule</h4>
+            <div className="space-y-1.5 font-mono text-zinc-600">
+              <div className="flex items-center justify-between p-1.5 rounded bg-zinc-50 border border-zinc-100">
+                <span className="font-medium text-zinc-900">Day 1</span>
+                <span>Initial discovery &amp; coaching</span>
+              </div>
+              <div className="flex items-center justify-between p-1.5 rounded bg-zinc-50 border border-zinc-100">
+                <span className="font-medium text-zinc-900">Day 3</span>
+                <span>Quick recall &amp; edge case check</span>
+              </div>
+              <div className="flex items-center justify-between p-1.5 rounded bg-zinc-50 border border-zinc-100">
+                <span className="font-medium text-zinc-900">Day 7</span>
+                <span>Full re-attempt under time limit</span>
+              </div>
+              <div className="flex items-center justify-between p-1.5 rounded bg-zinc-50 border border-zinc-100">
+                <span className="font-medium text-zinc-900">Day 21</span>
+                <span>Final mastery check &amp; variation</span>
+              </div>
+            </div>
           </div>
         </div>
       </Card>

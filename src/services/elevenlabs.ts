@@ -69,13 +69,14 @@ async function retryWithBackoff<T>(
 // Enhanced error handling for API responses
 function handleApiError(response: Response): SpeechGenerationError {
   switch (response.status) {
-    case 429:
+    case 429: {
       const retryAfter = response.headers.get('Retry-After');
       return {
         type: 'rate_limit',
         message: 'Rate limit exceeded. Please wait before making more requests.',
         retryAfter: retryAfter ? parseInt(retryAfter) * 1000 : 60000 // Default to 60 seconds
       };
+    }
     case 401:
       return {
         type: 'config_error',

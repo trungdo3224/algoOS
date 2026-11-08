@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2, Globe, Briefcase } from 'lucide-react';
+import { Plus, Search, BookOpen, Tag, Clock, Edit, Trash2, Briefcase } from 'lucide-react';
 import Card from '../components/ui/Card';
 import ProblemForm from '../components/problem-creator/ProblemForm';
 import ProblemFilters from '../components/problems/ProblemFilters';
@@ -85,25 +85,20 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
       const problemData = {
         title: data.title,
         description: data.description,
-        difficulty: data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1),
+        difficulty: (data.difficulty.charAt(0).toUpperCase() + data.difficulty.slice(1)) as 'Easy' | 'Medium' | 'Hard',
         tags: data.tags,
         site: data.site,
         example_input: data.examples[0]?.input || '',
         example_output: data.examples[0]?.output || '',
         constraints: data.constraints,
         hint: data.hint,
-        status: data.status
+        status: data.status,
+        time_taken: data.time_taken,
+        attempts: data.attempts,
+        note: data.note
       };
 
       if (selectedProblem) {
-        // For updates, first check if the problem still exists
-        const existingProblems = await dispatch(fetchProblems()).unwrap();
-        const problemExists = existingProblems.some(p => p.problem_id === selectedProblem.problem_id);
-        
-        if (!problemExists) {
-          throw new Error('Problem not found. It may have been deleted.');
-        }
-        
         await dispatch(updateProblem({ 
           id: selectedProblem.problem_id, 
           updates: problemData 
@@ -116,6 +111,9 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
 
       setIsModalOpen(false);
       setSelectedProblem(null);
+      if (onModalClose) {
+        onModalClose();
+      }
     } catch (err: any) {
       console.error('Error saving problem:', err);
       let errorMessage = 'An error occurred while saving the problem.';
@@ -182,17 +180,30 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
   const getStatusColor = (status?: ProblemStatus) => {
     switch (status) {
       case 'Đã tự giải':
-        return 'bg-green-100 text-green-800';
+        return 'bg-emerald-50 text-emerald-700 border border-emerald-200/60';
       case 'Giải với hint':
-        return 'bg-yellow-100 text-yellow-800';
+        return 'bg-amber-50 text-amber-700 border border-amber-200/60';
       case 'Giải từ solution':
-        return 'bg-orange-100 text-orange-800';
+        return 'bg-orange-50 text-orange-700 border border-orange-200/60';
       case 'Cần ôn tập sớm':
-        return 'bg-red-100 text-red-800';
+        return 'bg-rose-50 text-rose-700 border border-rose-200/60';
       case 'Đã ôn tập':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-50 text-blue-700 border border-blue-200/60';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-zinc-100 text-zinc-700 border border-zinc-200/60';
+    }
+  };
+
+  const getDifficultyBadge = (difficulty: string) => {
+    switch (difficulty) {
+      case 'Easy':
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200/60';
+      case 'Medium':
+        return 'bg-amber-50 text-amber-700 border-amber-200/60';
+      case 'Hard':
+        return 'bg-rose-50 text-rose-700 border-rose-200/60';
+      default:
+        return 'bg-zinc-100 text-zinc-700 border-zinc-200/60';
     }
   };
 
@@ -215,12 +226,23 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/80 pb-5">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">Problems</h1>
-          <p className="text-gray-600">
-            Browse and manage algorithm problems from various platforms.
+          <div className="flex items-center gap-2 mb-1.5">
+            <span className="px-2 py-0.5 text-[11px] font-mono font-medium uppercase tracking-wider text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">
+              Curated Problem Bank
+            </span>
+            <span className="text-zinc-300">•</span>
+            <span className="text-xs text-zinc-500 font-mono">
+              {filteredProblems.length} available
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
+            Problem Bank
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+            Browse, author, and inspect algorithm challenges across global competitive platforms.
           </p>
         </div>
         <Button
@@ -231,12 +253,13 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
             setIsModalOpen(true);
           }}
           leftIcon={<Plus className="h-4 w-4" />}
+          className="self-start sm:self-auto"
         >
-          Add New Problem
+          Add Problem
         </Button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Filters Sidebar */}
         <div className="lg:col-span-1">
           <ProblemFilters
@@ -250,126 +273,127 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
         {/* Problems List */}
         <div className="lg:col-span-3 space-y-4">
           {/* Search Bar */}
-          <div className="flex space-x-4">
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search problems by title or tag..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
+          <div className="relative">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Filter by title, topic, or keyword (e.g. Dynamic Programming, Tree)..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 text-sm bg-white border border-zinc-200/90 rounded-lg text-zinc-900 placeholder:text-zinc-400 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-colors shadow-[0_1px_2px_rgba(0,0,0,0.02)]"
+            />
           </div>
 
           {/* Results Summary */}
-          <div className="flex items-center justify-between text-sm text-gray-600">
+          <div className="flex items-center justify-between text-xs text-zinc-500 font-mono px-1">
             <span>
-              Showing {filteredProblems.length} of {problems.length} problems
+              Showing {filteredProblems.length} of {problems.length} challenges
             </span>
             {(filters.site !== 'all' || filters.difficulty !== 'all' || filters.tags.length > 0) && (
-              <span className="text-blue-600">Filters applied</span>
+              <span className="text-zinc-900 font-medium">Filters active</span>
             )}
           </div>
 
           {/* Problems Grid */}
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-500"></div>
+            <div className="flex flex-col items-center justify-center py-16 gap-3">
+              <div className="w-8 h-8 rounded-full border-2 border-zinc-900 border-t-transparent animate-spin" />
+              <span className="text-xs font-mono text-zinc-500">Loading problem catalog...</span>
             </div>
           ) : error ? (
-            <div className="text-red-600 text-center py-8">{error}</div>
+            <div className="p-4 rounded-lg bg-rose-50 border border-rose-200 text-xs text-rose-700 font-mono text-center">
+              {error}
+            </div>
           ) : filteredProblems.length === 0 ? (
-            <div className="text-gray-500 text-center py-8">
-              {searchQuery || filters.site !== 'all' || filters.difficulty !== 'all' || filters.tags.length > 0
-                ? 'No problems match your search criteria'
-                : 'No problems available'
-              }
+            <div className="text-center py-16 bg-white border border-zinc-200/80 rounded-xl">
+              <p className="text-sm font-medium text-zinc-700 mb-1">No matching problems</p>
+              <p className="text-xs text-zinc-400">Try adjusting your filters or search terms.</p>
             </div>
           ) : (
-            <div className="grid gap-4">
+            <div className="space-y-3">
               {filteredProblems.map((problem) => (
                 <Card
                   key={problem.problem_id}
                   hoverable
-                  className="cursor-pointer transition-transform hover:scale-[1.01]"
+                  className="transition-all hover:border-zinc-300"
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                        <BookOpen className="h-5 w-5 text-blue-600" />
-                        <h3 className="text-lg font-medium text-gray-900">{problem.title}</h3>
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <BookOpen className="h-4 w-4 text-zinc-700 flex-shrink-0" />
+                        <h3 className="text-base font-semibold text-zinc-900 tracking-tight">
+                          {problem.title}
+                        </h3>
                         {problem.site && (
-                          <div className="flex items-center space-x-1">
-                            <Globe className="h-4 w-4 text-gray-400" />
-                            <span className="text-sm text-gray-500">
-                              {getSiteIcon(problem.site)} {problem.site}
-                            </span>
-                          </div>
+                          <span className="inline-flex items-center gap-1 text-[11px] font-mono text-zinc-500 bg-zinc-50 border border-zinc-200/60 px-2 py-0.5 rounded">
+                            <span>{getSiteIcon(problem.site)}</span>
+                            {problem.site}
+                          </span>
                         )}
                       </div>
-                      <p className="text-sm text-gray-600 mb-3 line-clamp-2">{problem.description}</p>
-                      <div className="flex items-center space-x-4 mb-3">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium
-                          ${problem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
-                            problem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-red-100 text-red-800'}`}>
+
+                      <p className="text-xs text-zinc-600 mb-3 line-clamp-2 leading-relaxed">
+                        {problem.description}
+                      </p>
+
+                      <div className="flex items-center gap-2.5 flex-wrap">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium ${getDifficultyBadge(problem.difficulty)}`}>
                           {problem.difficulty}
                         </span>
                         {problem.status && (
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(problem.status)}`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono font-medium ${getStatusColor(problem.status)}`}>
                             {problem.status}
                           </span>
                         )}
-                        <span className="flex items-center text-sm text-gray-500">
-                          <Clock className="h-4 w-4 mr-1" />
-                          20-30 min
+                        <span className="inline-flex items-center text-xs text-zinc-400 font-mono">
+                          <Clock className="h-3.5 w-3.5 mr-1 text-zinc-400" />
+                          20–30m
                         </span>
-                      </div>
-                      
-                      {/* Real-world Application Button */}
-                      <div className="mb-3">
+
                         <Button
                           onClick={() => handleRealWorldView(problem)}
-                          variant="outline"
+                          variant="ghost"
                           size="sm"
-                          className="text-purple-600 border-purple-300 hover:bg-purple-50"
-                          leftIcon={<Briefcase className="h-4 w-4" />}
+                          className="text-zinc-600 hover:text-zinc-900 text-xs py-1 px-2 h-auto"
+                          leftIcon={<Briefcase className="h-3.5 w-3.5 text-zinc-400" />}
                         >
-                          🔁 Switch to Real-world View
+                          Real-world scenario
                         </Button>
                       </div>
                     </div>
-                    <div className="flex items-start space-x-4">
-                      <div className="flex flex-wrap gap-2">
+
+                    <div className="flex sm:flex-col items-end justify-between sm:justify-start gap-2 flex-shrink-0">
+                      <div className="flex flex-wrap gap-1 max-w-xs justify-end">
                         {problem.tags.slice(0, 3).map((tag, index) => (
                           <span
                             key={index}
-                            className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700"
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-zinc-100 text-zinc-600 border border-zinc-200/60"
                           >
-                            <Tag className="h-3 w-3 mr-1" />
+                            <Tag className="h-2.5 w-2.5 mr-1 text-zinc-400" />
                             {tag}
                           </span>
                         ))}
                         {problem.tags.length > 3 && (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-gray-50 text-gray-700">
-                            +{problem.tags.length - 3} more
+                          <span className="text-[10px] font-mono text-zinc-400 px-1 py-0.5">
+                            +{problem.tags.length - 3}
                           </span>
                         )}
                       </div>
-                      <div className="flex space-x-2">
+
+                      <div className="flex items-center gap-1 border-t sm:border-t-0 pt-2 sm:pt-1">
                         <button
                           onClick={() => handleEdit(problem)}
-                          className="p-1 text-gray-400 hover:text-blue-500 transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-zinc-800 rounded hover:bg-zinc-100 transition-colors"
+                          title="Edit Problem"
                         >
-                          <Edit className="h-4 w-4" />
+                          <Edit className="h-3.5 w-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(problem.problem_id)}
-                          className="p-1 text-gray-400 hover:text-red-500 transition-colors"
+                          className="p-1.5 text-zinc-400 hover:text-rose-600 rounded hover:bg-rose-50 transition-colors"
+                          title="Delete Problem"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
                     </div>
@@ -383,32 +407,35 @@ const ProblemCreator: React.FC<ProblemCreatorProps> = ({ openModal = false, onMo
 
       {/* Create/Edit Problem Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-zinc-200/90 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-semibold text-gray-900">
-                  {selectedProblem ? 'Edit Problem' : 'Create New Problem'}
-                </h2>
+              <div className="flex items-center justify-between pb-4 border-b border-zinc-200/80 mb-5">
+                <div>
+                  <h2 className="text-lg font-semibold text-zinc-900">
+                    {selectedProblem ? 'Edit Problem' : 'Create New Problem'}
+                  </h2>
+                  <p className="text-xs text-zinc-500 mt-0.5">Define constraints, test cases, and algorithmic attributes.</p>
+                </div>
                 <button
                   onClick={closeModal}
-                  className="text-gray-400 hover:text-gray-500"
+                  className="p-1.5 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 transition-colors"
                 >
                   <span className="sr-only">Close</span>
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
               </div>
 
               {successMessage && (
-                <div className="mb-4 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md">
+                <div className="mb-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-mono px-3.5 py-2.5 rounded-lg">
                   {successMessage}
                 </div>
               )}
 
               {apiError && (
-                <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md">
+                <div className="mb-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-mono px-3.5 py-2.5 rounded-lg">
                   {apiError}
                 </div>
               )}

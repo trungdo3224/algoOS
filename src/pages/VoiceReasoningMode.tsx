@@ -1,13 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Mic, 
-  MicOff, 
   Play, 
   Pause, 
   Square, 
   Brain, 
-  Clock, 
-  MessageSquare,
   Volume2,
   VolumeX,
   RotateCcw,
@@ -15,12 +12,8 @@ import {
   Lightbulb,
   AlertTriangle,
   CheckCircle,
-  FileText,
   Flag,
   Plus,
-  Settings,
-  Target,
-  TrendingUp,
   AlertCircle,
   Wifi,
   WifiOff
@@ -33,6 +26,7 @@ import ProblemSelector from '../components/ssa-coaching/ProblemSelector';
 import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import type { Problem } from '../lib/supabase';
+import { SAMPLE_PROBLEMS } from '../data/sampleProblems';
 
 interface AIMessage {
   id: string;
@@ -49,7 +43,8 @@ interface VoiceError {
 }
 
 const VoiceReasoningMode: React.FC = () => {
-  const { id: userId } = useAppSelector((state) => state.user);
+  const { id: _userId } = useAppSelector((state) => state.user);
+  const { problems: reduxProblems } = useAppSelector((state) => state.problems);
   
   // Session State
   const [selectedProblem, setSelectedProblem] = useState<Problem | null>(null);
@@ -57,7 +52,7 @@ const VoiceReasoningMode: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
-  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [_sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
   
   // Recording State
   const [currentTranscript, setCurrentTranscript] = useState('');
@@ -67,11 +62,11 @@ const VoiceReasoningMode: React.FC = () => {
   
   // Analysis State
   const [analysis, setAnalysis] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [_isAnalyzing, setIsAnalyzing] = useState(false);
   
   // Voice Settings
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
-  const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
+  const [_availableVoices, setAvailableVoices] = useState<Voice[]>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   
   // AI interaction state
@@ -84,16 +79,16 @@ const VoiceReasoningMode: React.FC = () => {
   // Voice service state
   const [voiceError, setVoiceError] = useState<VoiceError | null>(null);
   const [isVoiceServiceAvailable, setIsVoiceServiceAvailable] = useState(true);
-  const [apiUsage, setApiUsage] = useState<{ charactersUsed?: number; charactersLimit?: number } | null>(null);
+  const [_apiUsage, setApiUsage] = useState<{ charactersUsed?: number; charactersLimit?: number } | null>(null);
   const [rateLimitRetryTime, setRateLimitRetryTime] = useState<number>(0);
   
   // UI State
   const [isProblemSelectorOpen, setIsProblemSelectorOpen] = useState(false);
-  const [problems, setProblems] = useState<Problem[]>([]);
+  const [_problems, setProblems] = useState<Problem[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Debug state
-  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [_debugInfo, setDebugInfo] = useState<string>('');
   const [silenceCountdown, setSilenceCountdown] = useState<number>(0);
 
   const recorderRef = useRef<VoiceReasoningRecorder | null>(null);
@@ -153,7 +148,7 @@ const VoiceReasoningMode: React.FC = () => {
       const usage = await checkApiUsage();
       setApiUsage(usage);
       updateDebugInfo(`API usage checked: ${usage ? 'Available' : 'Not available'}`);
-    } catch (error) {
+    } catch {
       updateDebugInfo('Could not check API usage');
     }
   };
@@ -218,13 +213,19 @@ const VoiceReasoningMode: React.FC = () => {
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setProblems(data || []);
+      const problemList = data && data.length > 0 ? data : (reduxProblems.length > 0 ? reduxProblems : SAMPLE_PROBLEMS);
+      setProblems(problemList);
       
-      if (data && data.length > 0) {
-        setSelectedProblem(data[0]);
+      if (problemList.length > 0) {
+        setSelectedProblem(problemList[0]);
       }
     } catch (error) {
-      console.error('Error fetching problems:', error);
+      console.warn('Using local problems for Voice Reasoning:', error);
+      const problemList = reduxProblems.length > 0 ? reduxProblems : SAMPLE_PROBLEMS;
+      setProblems(problemList);
+      if (problemList.length > 0) {
+        setSelectedProblem(problemList[0]);
+      }
     } finally {
       setLoading(false);
     }
@@ -423,7 +424,7 @@ const VoiceReasoningMode: React.FC = () => {
     }
   };
 
-  const generateQuestionResponse = (transcript: string, stage: string) => {
+  const generateQuestionResponse = (transcript: string, _stage: string) => {
     if (transcript.includes('time complexity') || transcript.includes('complexity')) {
       return "Great question about complexity! Think about how many times you're iterating through your data and what operations you're performing in each iteration.";
     } else if (transcript.includes('approach') || transcript.includes('algorithm')) {
@@ -813,19 +814,6 @@ const VoiceReasoningMode: React.FC = () => {
     }
   };
 
-  const getMessageTypeColor = (type: string, isUser: boolean = false) => {
-    if (isUser) {
-      return 'bg-blue-50 border-blue-200 text-blue-800';
-    }
-    
-    switch (type) {
-      case 'question': return 'bg-purple-50 border-purple-200 text-purple-800';
-      case 'encouragement': return 'bg-green-50 border-green-200 text-green-800';
-      case 'response': return 'bg-orange-50 border-orange-200 text-orange-800';
-      default: return 'bg-gray-50 border-gray-200 text-gray-800';
-    }
-  };
-
   const navigateToSSA = () => {
     // Navigate to SSA coaching with the analysis data
     window.location.href = '/ssa-coaching';
@@ -842,41 +830,54 @@ const VoiceReasoningMode: React.FC = () => {
   // Setup Mode
   if (sessionMode === 'setup') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50">
-        <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="min-h-screen bg-zinc-50/70 py-8 px-4 sm:px-6">
+        <div className="max-w-4xl mx-auto space-y-6">
           {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-purple-500 to-blue-600 rounded-full mb-6">
-              <Mic className="h-10 w-10 text-white" />
+          <div className="border-b border-zinc-200/80 pb-6 text-center sm:text-left sm:flex sm:items-center sm:justify-between">
+            <div>
+              <div className="inline-flex items-center gap-2 mb-2">
+                <span className="px-2 py-0.5 text-[11px] font-mono font-medium uppercase tracking-wider text-zinc-600 bg-zinc-100 border border-zinc-200 rounded">
+                  Acoustic Thought Analysis
+                </span>
+                <span className="text-zinc-300">•</span>
+                <span className="text-xs text-zinc-500 font-mono">
+                  Real-time Socratic Probe
+                </span>
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
+                Voice Reasoning Workbench
+              </h1>
+              <p className="text-sm text-zinc-500 mt-1 max-w-xl">
+                Verbalize your algorithmic thought process. algoOS captures speech chunks, tracks hesitation intervals, and evaluates structural invariants in real time.
+              </p>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Voice Reasoning Session</h1>
-            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-              Think out loud while solving algorithmic problems. Our AI will analyze your reasoning patterns 
-              and provide personalized insights to improve your problem-solving approach.
-            </p>
+            
+            <div className="hidden sm:flex items-center justify-center w-14 h-14 bg-zinc-900 text-white rounded-xl shadow-sm">
+              <Mic className="h-7 w-7" />
+            </div>
           </div>
 
           {/* Voice Service Status */}
           {voiceError && (
-            <Card className={`mb-8 border-2 ${voiceError.type === 'rate_limit' ? 'border-orange-300 bg-orange-50' : 'border-red-300 bg-red-50'}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${voiceError.type === 'rate_limit' ? 'text-orange-600' : 'text-red-600'}`} />
+            <div className={`p-4 rounded-xl border ${voiceError.type === 'rate_limit' ? 'border-amber-200 bg-amber-50/70 text-amber-900' : 'border-rose-200 bg-rose-50/70 text-rose-900'}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${voiceError.type === 'rate_limit' ? 'text-amber-600' : 'text-rose-600'}`} />
                   <div>
-                    <h3 className={`font-medium ${voiceError.type === 'rate_limit' ? 'text-orange-900' : 'text-red-900'}`}>
-                      {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Service Error'}
+                    <h3 className="font-semibold text-xs tracking-wider uppercase">
+                      {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Link Offline'}
                     </h3>
-                    <p className={`text-sm ${voiceError.type === 'rate_limit' ? 'text-orange-800' : 'text-red-800'}`}>
+                    <p className="text-xs mt-0.5 opacity-90">
                       {voiceError.message}
                     </p>
                     {voiceError.type === 'rate_limit' && rateLimitRetryTime > 0 && (
-                      <p className="text-sm text-orange-700 mt-1">
-                        Voice will be available again in: {formatRetryTime(rateLimitRetryTime)}
+                      <p className="text-xs text-amber-700 mt-1 font-mono">
+                        Voice will resume in: {formatRetryTime(rateLimitRetryTime)}
                       </p>
                     )}
                     {voiceError.type === 'rate_limit' && (
-                      <p className="text-sm text-orange-700 mt-1">
-                        💡 You can continue the session - text responses will still work!
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        💡 Live text synthesis continues normally without interruption.
                       </p>
                     )}
                   </div>
@@ -885,67 +886,74 @@ const VoiceReasoningMode: React.FC = () => {
                   onClick={retryVoiceService}
                   variant="outline"
                   size="sm"
-                  className="text-xs"
+                  className="text-xs flex-shrink-0"
                 >
-                  Retry
+                  Retry Link
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Problem Selection */}
-          <Card className="mb-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">Select Problem</h2>
+          <Card title="Target Problem">
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-xs text-zinc-500">
+                Select an algorithm problem to evaluate during this reasoning session.
+              </p>
               <Button
                 onClick={() => setIsProblemSelectorOpen(true)}
-                leftIcon={<Plus className="h-4 w-4" />}
+                leftIcon={<Plus className="h-3.5 w-3.5" />}
                 variant="outline"
+                size="sm"
               >
-                Browse Problems
+                Browse Bank
               </Button>
             </div>
 
             {selectedProblem ? (
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-lg p-6 border border-blue-200">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-xl font-semibold text-gray-900 mb-2">{selectedProblem.title}</h3>
-                    <p className="text-gray-700 mb-4 line-clamp-3">{selectedProblem.description}</p>
-                    <div className="flex items-center space-x-4">
-                      <span className={`px-3 py-1 rounded-full text-sm font-medium
-                        ${selectedProblem.difficulty === 'Easy' ? 'bg-green-100 text-green-800' :
-                          selectedProblem.difficulty === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'}`}>
+              <div className="bg-zinc-50/70 rounded-xl p-4 border border-zinc-200/80">
+                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <h3 className="text-base font-semibold text-zinc-900">{selectedProblem.title}</h3>
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-mono font-medium
+                        ${selectedProblem.difficulty === 'Easy' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' :
+                          selectedProblem.difficulty === 'Medium' ? 'bg-amber-50 text-amber-700 border border-amber-200/60' :
+                          'bg-rose-50 text-rose-700 border border-rose-200/60'}`}>
                         {selectedProblem.difficulty}
                       </span>
-                      <div className="flex items-center space-x-2">
-                        {selectedProblem.tags.slice(0, 3).map((tag, index) => (
-                          <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
-                            {tag}
-                          </span>
-                        ))}
-                        {selectedProblem.tags.length > 3 && (
-                          <span className="text-xs text-gray-500">+{selectedProblem.tags.length - 3} more</span>
-                        )}
-                      </div>
+                    </div>
+                    <p className="text-xs text-zinc-600 mb-3 line-clamp-2 leading-relaxed">{selectedProblem.description}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {selectedProblem.tags.slice(0, 3).map((tag, index) => (
+                        <span key={index} className="px-2 py-0.5 bg-zinc-100 text-zinc-700 font-mono text-[10px] rounded border border-zinc-200/60">
+                          {tag}
+                        </span>
+                      ))}
+                      {selectedProblem.tags.length > 3 && (
+                        <span className="text-[10px] font-mono text-zinc-400">+{selectedProblem.tags.length - 3} more</span>
+                      )}
                     </div>
                   </div>
                   <Button
                     onClick={() => setIsProblemSelectorOpen(true)}
                     variant="outline"
                     size="sm"
+                    className="self-start"
                   >
-                    Change
+                    Change Problem
                   </Button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-500 mb-4">No problem selected</p>
+              <div className="text-center py-10 border border-dashed border-zinc-200 rounded-xl bg-zinc-50/40">
+                <Brain className="h-8 w-8 mx-auto text-zinc-300 mb-2" />
+                <p className="text-xs font-medium text-zinc-600 mb-1">No Problem Selected</p>
+                <p className="text-xs text-zinc-400 mb-4">Choose a problem from your catalog to begin thinking out loud.</p>
                 <Button
                   onClick={() => setIsProblemSelectorOpen(true)}
-                  leftIcon={<Plus className="h-4 w-4" />}
+                  leftIcon={<Plus className="h-3.5 w-3.5" />}
+                  size="sm"
                 >
                   Choose Problem
                 </Button>
@@ -954,84 +962,85 @@ const VoiceReasoningMode: React.FC = () => {
           </Card>
 
           {/* Voice Settings */}
-          <Card className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Voice Settings</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Card title="Speech Synthesis &amp; Audio Channel">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-end">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  AI Voice for Feedback
+                <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-1.5">
+                  AI Socratic Voice Persona
                 </label>
                 <select
                   value={selectedVoice?.voice_id || ''}
                   onChange={(e) => {
-                    const voice = availableVoices.find(v => v.voice_id === e.target.value);
+                    const voice = _availableVoices.find(v => v.voice_id === e.target.value);
                     setSelectedVoice(voice || null);
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-full px-3 py-2 text-xs bg-white border border-zinc-200/90 rounded-lg text-zinc-900 focus:outline-none focus:ring-1 focus:ring-zinc-900 focus:border-zinc-900 transition-colors font-mono"
                 >
-                  {availableVoices.map(voice => (
+                  {_availableVoices.map(voice => (
                     <option key={voice.voice_id} value={voice.voice_id}>
                       {voice.name} - {voice.description}
                     </option>
                   ))}
                 </select>
               </div>
-              <div className="flex items-end">
+              <div>
                 <Button
-                  onClick={() => selectedVoice && generateSpeech('Hello! I\'m ready to analyze your reasoning patterns.', selectedVoice.voice_id)}
+                  onClick={() => selectedVoice && generateSpeech('Hello! I am ready to evaluate your reasoning patterns.', selectedVoice.voice_id)}
                   variant="outline"
-                  leftIcon={<Volume2 className="h-4 w-4" />}
+                  size="sm"
+                  leftIcon={<Volume2 className="h-3.5 w-3.5" />}
                   disabled={!selectedVoice || !isVoiceServiceAvailable}
+                  className="w-full justify-center"
                 >
-                  {isVoiceServiceAvailable ? 'Test Voice' : 'Voice Unavailable'}
+                  {isVoiceServiceAvailable ? 'Test Audio Playback' : 'Audio Service Limited'}
                 </Button>
               </div>
             </div>
           </Card>
 
-          {/* Session Tips */}
-          <Card className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Session Tips</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Session Guidelines */}
+          <Card title="Cognitive Rubric &amp; Recommendations">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">What to Think About</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Break down what the problem is asking
+                <h4 className="font-semibold text-zinc-900 mb-2">Rubric Focus Areas</h4>
+                <ul className="space-y-1.5 text-zinc-600 font-mono">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                    <span>Deconstruct constraints and input guarantees clearly</span>
                   </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Walk through examples step by step
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                    <span>Trace canonical and boundary examples manually</span>
                   </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-purple-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Identify patterns and approaches
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                    <span>Identify structural invariants before selecting data structures</span>
                   </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Consider edge cases and complexity
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-900 mt-1 flex-shrink-0" />
+                    <span>State asymptotic time and space upper bounds</span>
                   </li>
                 </ul>
               </div>
+
               <div>
-                <h3 className="font-semibold text-gray-900 mb-3">Best Practices</h3>
-                <ul className="space-y-2 text-sm text-gray-700">
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-indigo-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Speak clearly and at a natural pace
+                <h4 className="font-semibold text-zinc-900 mb-2">Microphone Guidelines</h4>
+                <ul className="space-y-1.5 text-zinc-600 font-mono">
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1 flex-shrink-0" />
+                    <span>Speak steadily; brief pauses trigger Socratic hints</span>
                   </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-pink-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Express your thought process honestly
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1 flex-shrink-0" />
+                    <span>Verbalize uncertainty or alternatives directly</span>
                   </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-teal-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Don't worry about being perfect
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1 flex-shrink-0" />
+                    <span>Use the flag shortcut to mark pivotal realization points</span>
                   </li>
-                  <li className="flex items-start">
-                    <span className="w-2 h-2 bg-orange-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    Take notes while thinking
+                  <li className="flex items-start gap-2">
+                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1 flex-shrink-0" />
+                    <span>Take scratchpad notes to ground your invariants</span>
                   </li>
                 </ul>
               </div>
@@ -1039,17 +1048,18 @@ const VoiceReasoningMode: React.FC = () => {
           </Card>
 
           {/* Start Session */}
-          <div className="text-center">
+          <div className="text-center pt-2 pb-6">
             <Button
               onClick={startSession}
               disabled={!selectedProblem}
-              className="bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 text-white px-12 py-4 text-lg font-semibold"
-              leftIcon={<Mic className="h-6 w-6" />}
+              size="lg"
+              className="bg-zinc-950 hover:bg-zinc-800 text-white font-semibold px-8 py-3 shadow-sm rounded-lg"
+              leftIcon={<Mic className="h-4 w-4" />}
             >
-              Start Voice Reasoning Session
+              Initialize Reasoning Session
             </Button>
-            <p className="text-sm text-gray-500 mt-3">
-              Estimated session time: 15-30 minutes
+            <p className="text-xs text-zinc-400 mt-2 font-mono">
+              Estimated 15–30 min • Audio input buffered locally
             </p>
           </div>
         </div>
@@ -1073,31 +1083,31 @@ const VoiceReasoningMode: React.FC = () => {
   // Recording Mode
   if (sessionMode === 'recording') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 text-white">
-        <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-zinc-800 selection:text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           {/* Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center space-x-4">
-              <div className="h-12 w-12 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                <Brain className="h-6 w-6" />
+          <div className="flex items-center justify-between pb-6 mb-6 border-b border-zinc-800">
+            <div className="flex items-center space-x-3.5">
+              <div className="h-10 w-10 bg-zinc-900 border border-zinc-800 rounded-xl flex items-center justify-center text-white shadow-sm">
+                <Brain className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-2xl font-bold">{selectedProblem?.title}</h1>
-                <p className="text-purple-200">Voice Reasoning Session</p>
+                <h1 className="text-xl font-bold tracking-tight text-white">{selectedProblem?.title}</h1>
+                <p className="text-xs text-zinc-400 font-mono">Voice Reasoning Console // algoOS</p>
               </div>
             </div>
             <div className="text-right">
-              <div className="text-3xl font-bold">{formatDuration(sessionDuration)}</div>
-              <div className="text-sm text-purple-200 flex items-center justify-end">
+              <div className="text-2xl font-bold font-mono tracking-tight text-white">{formatDuration(sessionDuration)}</div>
+              <div className="text-xs text-zinc-400 flex items-center justify-end font-mono">
                 {isVoiceServiceAvailable ? (
                   <>
-                    <Wifi className="h-4 w-4 mr-1" />
-                    Voice Available
+                    <Wifi className="h-3.5 w-3.5 mr-1 text-emerald-400" />
+                    <span>Voice Link Ready</span>
                   </>
                 ) : (
                   <>
-                    <WifiOff className="h-4 w-4 mr-1" />
-                    Voice Limited
+                    <WifiOff className="h-3.5 w-3.5 mr-1 text-amber-400" />
+                    <span>Voice Link Limited</span>
                   </>
                 )}
               </div>
@@ -1106,25 +1116,20 @@ const VoiceReasoningMode: React.FC = () => {
 
           {/* Voice Service Status */}
           {voiceError && (
-            <Card className={`mb-4 border-2 ${voiceError.type === 'rate_limit' ? 'border-orange-300 bg-orange-50' : 'border-red-300 bg-red-50'}`}>
+            <div className={`p-4 rounded-xl border mb-6 ${voiceError.type === 'rate_limit' ? 'border-amber-800 bg-amber-950/40 text-amber-200' : 'border-rose-800 bg-rose-950/40 text-rose-200'}`}>
               <div className="flex items-start justify-between">
                 <div className="flex items-start space-x-3">
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${voiceError.type === 'rate_limit' ? 'text-orange-600' : 'text-red-600'}`} />
+                  <AlertCircle className={`h-5 w-5 mt-0.5 flex-shrink-0 ${voiceError.type === 'rate_limit' ? 'text-amber-400' : 'text-rose-400'}`} />
                   <div>
-                    <h3 className={`font-medium ${voiceError.type === 'rate_limit' ? 'text-orange-900' : 'text-red-900'}`}>
-                      {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Service Error'}
+                    <h3 className="font-semibold text-xs tracking-wider uppercase">
+                      {voiceError.type === 'rate_limit' ? 'Voice Service Notice' : 'Service Connection Error'}
                     </h3>
-                    <p className={`text-sm ${voiceError.type === 'rate_limit' ? 'text-orange-800' : 'text-red-800'}`}>
+                    <p className="text-xs mt-0.5 opacity-90">
                       {voiceError.message}
                     </p>
                     {voiceError.type === 'rate_limit' && rateLimitRetryTime > 0 && (
-                      <p className="text-sm text-orange-700 mt-1">
-                        Voice will be available again in: {formatRetryTime(rateLimitRetryTime)}
-                      </p>
-                    )}
-                    {voiceError.type === 'rate_limit' && (
-                      <p className="text-sm text-orange-700 mt-1">
-                        💡 You can continue the session - text responses will still work!
+                      <p className="text-xs text-amber-300 mt-1 font-mono">
+                        Available in: {formatRetryTime(rateLimitRetryTime)}
                       </p>
                     )}
                   </div>
@@ -1133,103 +1138,107 @@ const VoiceReasoningMode: React.FC = () => {
                   onClick={retryVoiceService}
                   variant="outline"
                   size="sm"
-                  className="text-xs"
+                  className="text-xs border-zinc-700 text-zinc-200 hover:bg-zinc-800"
                 >
                   Retry
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
             {/* Left Panel - Live Transcript */}
-            <div className="space-y-6">
-              <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-white">Live Transcript</h2>
-                  <div className="flex items-center space-x-2">
+            <div className="lg:col-span-7 space-y-6">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">Live Speech Stream</h2>
+                  <div className="flex items-center space-x-2 text-xs font-mono">
                     {isRecording && !isPaused && (
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+                      <div className="w-2 h-2 bg-rose-500 rounded-full animate-pulse"></div>
                     )}
-                    <span className="text-sm text-purple-200">
-                      {isRecording && !isPaused ? 'Recording...' : isPaused ? 'Paused' : 'Stopped'}
+                    <span className="text-zinc-400">
+                      {isRecording && !isPaused ? 'Listening...' : isPaused ? 'Paused' : 'Stopped'}
                     </span>
                     {silenceCountdown > 0 && (
-                      <span className="text-sm text-orange-300 ml-2">
-                        AI response in {silenceCountdown}s
+                      <span className="text-amber-400 ml-2">
+                        probe in {silenceCountdown}s
                       </span>
                     )}
                   </div>
                 </div>
                 
-                <div className="bg-black bg-opacity-30 rounded-lg p-4 min-h-[300px] max-h-[400px] overflow-y-auto">
+                <div className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-4 min-h-[300px] max-h-[420px] overflow-y-auto custom-scrollbar font-mono text-xs">
                   {chunks.map((chunk, index) => (
-                    <div key={chunk.id} className="mb-4 p-3 bg-white bg-opacity-10 rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs text-purple-200">Chunk {index + 1}</span>
-                        <div className="flex items-center space-x-2">
-                          <span className={`w-3 h-3 rounded-full ${getStageColor(chunk.stage || 'general')}`}></span>
-                          <span className="text-xs text-purple-200">{chunk.stage || 'general'}</span>
+                    <div key={chunk.id} className="mb-3 p-3 bg-zinc-900/80 border border-zinc-800 rounded-lg">
+                      <div className="flex items-center justify-between mb-1 text-[10px] text-zinc-400">
+                        <span>Chunk #{index + 1}</span>
+                        <div className="flex items-center space-x-1.5">
+                          <span className={`w-2 h-2 rounded-full ${getStageColor(chunk.stage || 'general')}`}></span>
+                          <span className="uppercase">{chunk.stage || 'general'}</span>
                         </div>
                       </div>
-                      <p className="text-white text-sm">{chunk.transcript}</p>
+                      <p className="text-zinc-200 text-xs leading-relaxed font-sans">{chunk.transcript}</p>
                     </div>
                   ))}
                   
                   {currentTranscript && (
-                    <div className="p-3 bg-yellow-500 bg-opacity-20 rounded-lg border border-yellow-400 border-opacity-30">
-                      <p className="text-yellow-100 text-sm">
+                    <div className="p-3 bg-zinc-900/60 border border-zinc-700/80 rounded-lg">
+                      <p className="text-zinc-100 text-xs font-sans">
                         {currentTranscript}
-                        <span className="inline-block w-2 h-4 bg-yellow-400 ml-1 animate-pulse"></span>
+                        <span className="inline-block w-1.5 h-3.5 bg-white ml-1.5 animate-pulse align-middle"></span>
                       </p>
                     </div>
                   )}
                   
                   {!isRecording && !isPaused && chunks.length === 0 && (
-                    <div className="text-center text-purple-300 py-12">
-                      <Mic className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Start speaking to see your transcript here...</p>
+                    <div className="text-center text-zinc-500 py-16">
+                      <Mic className="h-8 w-8 mx-auto mb-3 opacity-40" />
+                      <p className="text-xs">Start speaking your thought process aloud...</p>
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
 
               {/* Recording Controls */}
-              <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                <div className="flex justify-center space-x-4">
-                  {!isRecording && !isPaused && (
-                    <Button
-                      onClick={startRecording}
-                      className="bg-red-500 hover:bg-red-600 text-white px-8 py-3"
-                      leftIcon={<Mic className="h-5 w-5" />}
-                    >
-                      Start Recording
-                    </Button>
-                  )}
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-lg flex items-center justify-center space-x-3">
+                {!isRecording && !isPaused && (
+                  <Button
+                    onClick={startRecording}
+                    size="md"
+                    className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                    leftIcon={<Mic className="h-4 w-4" />}
+                  >
+                    Start Recording
+                  </Button>
+                )}
 
                   {isRecording && !isPaused && (
                     <>
                       <Button
                         onClick={pauseRecording}
-                        className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                        leftIcon={<Pause className="h-5 w-5" />}
+                        variant="outline"
+                        size="md"
+                        className="border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                        leftIcon={<Pause className="h-4 w-4" />}
                       >
                         Pause
                       </Button>
                       <Button
                         onClick={addFlag}
                         variant="outline"
-                        className="border-white border-opacity-30 text-white hover:bg-white hover:bg-opacity-10"
-                        leftIcon={<Flag className="h-5 w-5" />}
+                        size="md"
+                        className="border-zinc-700 text-zinc-200 hover:bg-zinc-800"
+                        leftIcon={<Flag className="h-4 w-4 text-amber-400" />}
                       >
                         Flag Moment
                       </Button>
                       <Button
                         onClick={stopRecording}
-                        className="bg-red-500 hover:bg-red-600 text-white"
-                        leftIcon={<Square className="h-5 w-5" />}
+                        size="md"
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                        leftIcon={<Square className="h-4 w-4" />}
                       >
-                        Finish Session
+                        Finish & Analyze
                       </Button>
                     </>
                   )}
@@ -1238,50 +1247,54 @@ const VoiceReasoningMode: React.FC = () => {
                     <>
                       <Button
                         onClick={resumeRecording}
-                        className="bg-green-500 hover:bg-green-600 text-white"
-                        leftIcon={<Play className="h-5 w-5" />}
+                        size="md"
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+                        leftIcon={<Play className="h-4 w-4" />}
                       >
                         Resume
                       </Button>
                       <Button
                         onClick={stopRecording}
-                        className="bg-red-500 hover:bg-red-600 text-white"
-                        leftIcon={<Square className="h-5 w-5" />}
+                        size="md"
+                        className="bg-rose-600 hover:bg-rose-700 text-white font-semibold"
+                        leftIcon={<Square className="h-4 w-4" />}
                       >
-                        Finish Session
+                        Finish & Analyze
                       </Button>
                     </>
                   )}
                 </div>
-              </Card>
 
               {/* AI Interaction Panel */}
               {aiMessages.length > 0 && (
-                <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                  <h2 className="text-xl font-bold text-white mb-4">AI Coaching Conversation</h2>
-                  <div className="space-y-3 max-h-80 overflow-y-auto mb-4">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+                  <div className="flex items-center justify-between mb-4 pb-3 border-b border-zinc-800">
+                    <h2 className="text-sm font-bold text-white uppercase tracking-wider">AI Socratic Interactions</h2>
+                    <span className="text-[11px] font-mono text-zinc-400">{aiMessages.length} total</span>
+                  </div>
+                  <div className="space-y-3 max-h-72 overflow-y-auto mb-4 custom-scrollbar">
                     {aiMessages.map((message) => (
                       <div
                         key={message.id}
-                        className={`p-3 rounded-lg border ${message.isUser ? 'bg-blue-900 bg-opacity-30 border-blue-700' : 'bg-purple-900 bg-opacity-30 border-purple-700'}`}
+                        className={`p-3.5 rounded-xl border text-xs leading-relaxed ${message.isUser ? 'bg-zinc-950 border-zinc-800 text-zinc-200' : 'bg-zinc-850/80 border-zinc-750 text-zinc-200'}`}
                       >
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-medium text-white">
-                            {message.isUser ? '👤 You' : '🤖 AI Coach'}
+                        <div className="flex items-center justify-between mb-1.5 text-[10px] uppercase font-semibold text-zinc-400">
+                          <span>
+                            {message.isUser ? 'You' : 'AI Coach'}
                           </span>
-                          <span className="text-xs text-purple-200">
+                          <span className="font-mono">
                             {message.timestamp.toLocaleTimeString()}
                           </span>
                         </div>
-                        <p className="text-white text-sm">{message.content}</p>
+                        <p className="text-zinc-200 text-xs leading-relaxed">{message.content}</p>
                         {!message.isUser && (
                           <button
                             onClick={() => playAIMessage(message.content)}
-                            className="mt-2 text-xs text-blue-300 hover:text-blue-200 flex items-center"
+                            className="mt-2 text-xs text-white font-semibold hover:underline flex items-center"
                             disabled={isPlayingAudio || !isVoiceServiceAvailable}
                           >
                             <Volume2 className="h-3 w-3 mr-1" />
-                            {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Play Again' : 'Voice Unavailable'}
+                            {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Replay Audio' : 'Voice Limited'}
                           </button>
                         )}
                       </div>
@@ -1290,12 +1303,7 @@ const VoiceReasoningMode: React.FC = () => {
 
                   {/* Chat Input */}
                   {showChatInput && (
-                    <div className="border-t border-white border-opacity-20 pt-4">
-                      <div className="bg-yellow-900 bg-opacity-30 border border-yellow-700 rounded-lg p-3 mb-3">
-                        <p className="text-sm text-yellow-200">
-                          💬 The AI coach is waiting for your response. You can type here or continue speaking.
-                        </p>
-                      </div>
+                    <div className="border-t border-zinc-800 pt-3">
                       <div className="flex space-x-2">
                         <input
                           type="text"
@@ -1303,94 +1311,94 @@ const VoiceReasoningMode: React.FC = () => {
                           onChange={(e) => setUserInput(e.target.value)}
                           onKeyPress={(e) => e.key === 'Enter' && handleUserResponse()}
                           placeholder="Type your response to the AI coach..."
-                          className="flex-1 px-3 py-2 bg-white bg-opacity-10 border border-white border-opacity-30 rounded-md text-white placeholder-purple-200 focus:ring-2 focus:ring-purple-400 focus:border-transparent"
+                          className="flex-1 px-3 py-2 text-xs bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder:text-zinc-500 focus:outline-none focus:border-zinc-600"
                         />
                         <Button
                           onClick={handleUserResponse}
                           disabled={!userInput.trim()}
-                          leftIcon={<Brain className="h-4 w-4" />}
-                          className="bg-purple-600 hover:bg-purple-700 text-white"
+                          size="sm"
+                          className="bg-white text-zinc-950 hover:bg-zinc-200"
                         >
                           Send
                         </Button>
                       </div>
                     </div>
                   )}
-                </Card>
+                </div>
               )}
             </div>
 
             {/* Right Panel - Notes & Flags */}
-            <div className="space-y-6">
-              <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                <h2 className="text-xl font-bold text-white mb-4">Session Notes</h2>
+            <div className="lg:col-span-5 space-y-6">
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-3">Workbench Scratchpad</h2>
                 <textarea
                   value={userNotes}
                   onChange={(e) => setUserNotes(e.target.value)}
-                  placeholder="Take notes while thinking through the problem..."
-                  className="w-full h-40 bg-black bg-opacity-30 text-white placeholder-purple-300 border border-white border-opacity-20 rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-purple-400"
+                  placeholder="Record invariants, complexity estimates, or edge cases while reasoning..."
+                  className="w-full h-36 bg-zinc-950 text-zinc-100 placeholder:text-zinc-500 border border-zinc-800 rounded-xl p-3 resize-none text-xs font-mono focus:outline-none focus:border-zinc-600 custom-scrollbar"
                 />
-              </Card>
+              </div>
 
-              <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-bold text-white">Flagged Moments</h2>
-                  <span className="text-sm text-purple-200">{flaggedMoments.length} flags</span>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+                <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-800">
+                  <h2 className="text-sm font-bold text-white uppercase tracking-wider">Flagged Key Moments</h2>
+                  <span className="text-xs font-mono text-zinc-400">{flaggedMoments.length} flags</span>
                 </div>
                 
-                <div className="space-y-3 max-h-60 overflow-y-auto">
+                <div className="space-y-2.5 max-h-52 overflow-y-auto custom-scrollbar">
                   {flaggedMoments.map((flag, index) => (
-                    <div key={index} className="bg-black bg-opacity-30 rounded-lg p-3">
+                    <div key={index} className="bg-zinc-950 border border-zinc-800/80 rounded-xl p-3 text-xs">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs text-purple-200">
+                        <span className="text-[10px] font-mono text-amber-400 font-semibold">
                           {formatDuration(flag.timestamp)}
                         </span>
-                        <Flag className="h-4 w-4 text-yellow-400" />
+                        <Flag className="h-3.5 w-3.5 text-amber-400" />
                       </div>
-                      <p className="text-white text-sm">{flag.note}</p>
+                      <p className="text-zinc-300 text-xs">{flag.note}</p>
                     </div>
                   ))}
                   
                   {flaggedMoments.length === 0 && (
-                    <div className="text-center text-purple-300 py-8">
-                      <Flag className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                      <p className="text-sm">No flagged moments yet</p>
+                    <div className="text-center text-zinc-500 py-8">
+                      <Flag className="h-6 w-6 mx-auto mb-2 opacity-30" />
+                      <p className="text-xs">No moments flagged yet. Click "Flag Moment" to mark inflection points.</p>
                     </div>
                   )}
                 </div>
-              </Card>
+              </div>
 
               {/* Session Stats */}
-              <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                <h2 className="text-xl font-bold text-white mb-4">Session Stats</h2>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{chunks.length}</div>
-                    <div className="text-sm text-purple-200">Chunks Captured</div>
+              <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-lg">
+                <h2 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Session Telemetry</h2>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-center">
+                    <div className="text-xl font-bold font-mono text-white">{chunks.length}</div>
+                    <div className="text-[10px] uppercase font-semibold text-zinc-400 mt-0.5">Chunks</div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{flaggedMoments.length}</div>
-                    <div className="text-sm text-purple-200">Moments Flagged</div>
+                  <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-center">
+                    <div className="text-xl font-bold font-mono text-white">{flaggedMoments.length}</div>
+                    <div className="text-[10px] uppercase font-semibold text-zinc-400 mt-0.5">Flags</div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{aiMessages.filter(m => !m.isUser).length}</div>
-                    <div className="text-sm text-purple-200">AI Interactions</div>
+                  <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-center">
+                    <div className="text-xl font-bold font-mono text-white">{aiMessages.filter(m => !m.isUser).length}</div>
+                    <div className="text-[10px] uppercase font-semibold text-zinc-400 mt-0.5">AI Probes</div>
                   </div>
-                  <div className="text-center">
-                    <div className="text-2xl font-bold text-white">{aiMessages.filter(m => m.isUser).length}</div>
-                    <div className="text-sm text-purple-200">Your Responses</div>
+                  <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-xl text-center">
+                    <div className="text-xl font-bold font-mono text-white">{aiMessages.filter(m => m.isUser).length}</div>
+                    <div className="text-[10px] uppercase font-semibold text-zinc-400 mt-0.5">Replies</div>
                   </div>
                 </div>
-              </Card>
+              </div>
 
               {/* Debug Info */}
               {debugInfo && (
-                <Card className="bg-white bg-opacity-10 backdrop-blur-sm border-white border-opacity-20">
-                  <h2 className="text-xl font-bold text-white mb-4">Debug Info</h2>
-                  <div className="bg-black bg-opacity-30 p-3 rounded-lg text-xs text-purple-200 font-mono">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 shadow-lg">
+                  <h2 className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-2">Debug Log</h2>
+                  <div className="bg-zinc-950 p-2.5 rounded-lg text-[10px] text-zinc-400 font-mono overflow-x-auto">
                     {debugInfo}
                   </div>
-                </Card>
+                </div>
               )}
             </div>
           </div>
@@ -1402,28 +1410,19 @@ const VoiceReasoningMode: React.FC = () => {
   // Analysis Mode
   if (sessionMode === 'analysis') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
-        <div className="max-w-4xl mx-auto px-4 py-12">
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-6">
-              <Brain className="h-10 w-10 text-white animate-pulse" />
-            </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Analyzing Your Reasoning...</h1>
-            <p className="text-xl text-gray-600 mb-8">
-              Gemini AI is processing your thought patterns and identifying insights
-            </p>
-            
-            <div className="max-w-md mx-auto">
-              <div className="bg-white rounded-lg p-8 shadow-lg">
-                <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-purple-500 mx-auto mb-6"></div>
-                <div className="space-y-3">
-                  <div className="text-sm text-gray-600">Processing speech chunks...</div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
-                    <div className="bg-purple-500 h-2 rounded-full animate-pulse" style={{width: '75%'}}></div>
-                  </div>
-                  <div className="text-xs text-gray-500">Identifying reasoning patterns and insights</div>
-                </div>
-              </div>
+      <div className="min-h-screen bg-zinc-50/70 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white border border-zinc-200/90 rounded-2xl p-8 shadow-xl text-center space-y-4">
+          <div className="w-12 h-12 bg-zinc-900 text-white rounded-xl flex items-center justify-center mx-auto shadow-sm">
+            <Brain className="h-6 w-6 animate-pulse" />
+          </div>
+          <h1 className="text-lg font-bold text-zinc-950">Synthesizing Thought Telemetry</h1>
+          <p className="text-xs text-zinc-600 leading-relaxed">
+            Gemini AI is analyzing hesitation intervals, pattern identification accuracy, and algorithmic formulation efficiency.
+          </p>
+          <div className="pt-2">
+            <div className="animate-spin rounded-full h-6 w-6 border-2 border-zinc-900 border-t-transparent mx-auto mb-3"></div>
+            <div className="w-full bg-zinc-100 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-zinc-900 h-1.5 rounded-full animate-pulse" style={{ width: '75%' }}></div>
             </div>
           </div>
         </div>
@@ -1434,249 +1433,203 @@ const VoiceReasoningMode: React.FC = () => {
   // Feedback Mode
   if (sessionMode === 'feedback' && analysis) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 via-blue-50 to-purple-50">
-        <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="min-h-screen bg-zinc-50/70">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
           {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-green-500 to-blue-600 rounded-full mb-6">
-              <CheckCircle className="h-10 w-10 text-white" />
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-4 border-b border-zinc-200/80">
+            <div>
+              <div className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200/80 mb-2">
+                <CheckCircle className="h-3.5 w-3.5" />
+                Session Analysis Complete
+              </div>
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Reasoning Evaluation Report</h1>
+              <p className="text-xs sm:text-sm text-zinc-500 mt-1">
+                Synthesized insights on problem: <span className="font-semibold text-zinc-800">{selectedProblem?.title}</span>
+              </p>
             </div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-4">Session Complete!</h1>
-            <p className="text-xl text-gray-600">
-              Here's your personalized analysis and feedback powered by Gemini AI
-            </p>
+
+            <div className="flex items-center space-x-3">
+              <Button
+                onClick={resetSession}
+                variant="outline"
+                size="sm"
+                leftIcon={<RotateCcw className="h-3.5 w-3.5" />}
+              >
+                New Session
+              </Button>
+              <Button
+                onClick={navigateToSSA}
+                variant="primary"
+                size="sm"
+                rightIcon={<ArrowRight className="h-3.5 w-3.5" />}
+              >
+                Start SSA Coaching
+              </Button>
+            </div>
           </div>
 
           {/* Voice Service Status */}
           {voiceError && (
-            <Card className={`mb-8 border-2 ${voiceError.type === 'rate_limit' ? 'border-orange-300 bg-orange-50' : 'border-red-300 bg-red-50'}`}>
+            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/60 text-amber-900 text-xs">
               <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${voiceError.type === 'rate_limit' ? 'text-orange-600' : 'text-red-600'}`} />
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600 flex-shrink-0" />
                   <div>
-                    <h3 className={`font-medium ${voiceError.type === 'rate_limit' ? 'text-orange-900' : 'text-red-900'}`}>
-                      {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Service Error'}
-                    </h3>
-                    <p className={`text-sm ${voiceError.type === 'rate_limit' ? 'text-orange-800' : 'text-red-800'}`}>
-                      {voiceError.message}
-                    </p>
-                    {voiceError.type === 'rate_limit' && rateLimitRetryTime > 0 && (
-                      <p className="text-sm text-orange-700 mt-1">
-                        Voice will be available again in: {formatRetryTime(rateLimitRetryTime)}
-                      </p>
-                    )}
+                    <span className="font-semibold">Voice Notice: </span>
+                    <span>{voiceError.message}</span>
                   </div>
                 </div>
                 <Button
                   onClick={retryVoiceService}
                   variant="outline"
                   size="sm"
-                  className="text-xs"
+                  className="h-7 px-2 text-xs"
                 >
                   Retry
                 </Button>
               </div>
-            </Card>
+            </div>
           )}
 
-          {/* Session Summary */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-12">
-            <Card className="text-center bg-gradient-to-br from-blue-500 to-blue-600 text-white">
-              <Clock className="h-8 w-8 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{formatDuration(sessionDuration)}</div>
-              <div className="text-sm text-blue-100">Total Time</div>
-            </Card>
+          {/* Session Summary KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <div className="text-[10px] uppercase font-semibold text-zinc-400 tracking-wider">Duration</div>
+              <div className="text-2xl font-bold font-mono text-zinc-900 mt-1">{formatDuration(sessionDuration)}</div>
+              <div className="text-[11px] text-zinc-500 mt-0.5">Total recorded thinking</div>
+            </div>
             
-            <Card className="text-center bg-gradient-to-br from-green-500 to-green-600 text-white">
-              <MessageSquare className="h-8 w-8 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{chunks.length}</div>
-              <div className="text-sm text-green-100">Reasoning Chunks</div>
-            </Card>
+            <div className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <div className="text-[10px] uppercase font-semibold text-zinc-400 tracking-wider">Reasoning Chunks</div>
+              <div className="text-2xl font-bold font-mono text-zinc-900 mt-1">{chunks.length}</div>
+              <div className="text-[11px] text-zinc-500 mt-0.5">Distinct thought units</div>
+            </div>
             
-            <Card className="text-center bg-gradient-to-br from-purple-500 to-purple-600 text-white">
-              <Target className="h-8 w-8 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{analysis.overallScore || 'N/A'}/10</div>
-              <div className="text-sm text-purple-100">AI Score</div>
-            </Card>
+            <div className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <div className="text-[10px] uppercase font-semibold text-zinc-400 tracking-wider">AI Reasoning Score</div>
+              <div className="text-2xl font-bold font-mono text-zinc-900 mt-1">{analysis.overallScore || 'N/A'}<span className="text-xs text-zinc-400 font-normal">/10</span></div>
+              <div className="text-[11px] text-zinc-500 mt-0.5">Socratic evaluation index</div>
+            </div>
             
-            <Card className="text-center bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-              <TrendingUp className="h-8 w-8 mx-auto mb-2" />
-              <div className="text-2xl font-bold">{(analysis.suggestions || []).length}</div>
-              <div className="text-sm text-orange-100">Improvements</div>
-            </Card>
+            <div className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+              <div className="text-[10px] uppercase font-semibold text-zinc-400 tracking-wider">Action Items</div>
+              <div className="text-2xl font-bold font-mono text-zinc-900 mt-1">{(analysis.suggestions || []).length}</div>
+              <div className="text-[11px] text-zinc-500 mt-0.5">Identified improvements</div>
+            </div>
           </div>
 
-          {/* Voice Feedback */}
-          <Card className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">AI Voice Feedback</h2>
-            <div className="flex items-center justify-between bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6">
-              <div className="flex items-center space-x-4">
-                <div className="h-12 w-12 bg-purple-100 rounded-full flex items-center justify-center">
-                  <Volume2 className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Personalized Audio Analysis</h3>
-                  <p className="text-gray-600">Listen to Gemini AI insights about your reasoning patterns</p>
-                </div>
+          {/* Voice Feedback Playback */}
+          <div className="bg-white p-5 rounded-xl border border-zinc-200/90 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center space-x-3">
+              <div className="h-10 w-10 bg-zinc-100 rounded-xl flex items-center justify-center text-zinc-700 flex-shrink-0">
+                <Volume2 className="h-5 w-5" />
               </div>
-              <div className="flex items-center space-x-3">
-                <Button
-                  onClick={playAnalysisFeedback}
-                  disabled={isPlayingAudio || !selectedVoice || !isVoiceServiceAvailable}
-                  className="bg-purple-500 hover:bg-purple-600 text-white"
-                  leftIcon={<Volume2 className="h-4 w-4" />}
-                >
-                  {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Play Feedback' : 'Voice Unavailable'}
-                </Button>
-                
-                {isPlayingAudio && (
-                  <Button
-                    onClick={stopAudio}
-                    variant="outline"
-                    leftIcon={<VolumeX className="h-4 w-4" />}
-                  >
-                    Stop
-                  </Button>
-                )}
-                
-                {!isVoiceServiceAvailable && (
-                  <Button
-                    onClick={retryVoiceService}
-                    variant="outline"
-                    leftIcon={<RotateCcw className="h-4 w-4" />}
-                  >
-                    Retry Voice
-                  </Button>
-                )}
+              <div>
+                <h3 className="text-sm font-semibold text-zinc-900">Audio Synthesis Report</h3>
+                <p className="text-xs text-zinc-500 mt-0.5">Listen to Gemini AI vocal debrief of your reasoning trajectory</p>
               </div>
             </div>
-          </Card>
+            <div className="flex items-center space-x-2">
+              <Button
+                onClick={playAnalysisFeedback}
+                disabled={isPlayingAudio || !selectedVoice || !isVoiceServiceAvailable}
+                size="sm"
+                leftIcon={<Volume2 className="h-3.5 w-3.5" />}
+              >
+                {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Listen to Feedback' : 'Voice Limited'}
+              </Button>
+              
+              {isPlayingAudio && (
+                <Button
+                  onClick={stopAudio}
+                  variant="outline"
+                  size="sm"
+                  leftIcon={<VolumeX className="h-3.5 w-3.5" />}
+                >
+                  Stop
+                </Button>
+              )}
+            </div>
+          </div>
 
-          {/* Analysis Results */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-            <Card className="bg-green-50 border-green-200">
-              <div className="flex items-center mb-4">
-                <CheckCircle className="h-6 w-6 text-green-600 mr-3" />
-                <h3 className="text-xl font-bold text-green-900">Strengths</h3>
+          {/* Analysis Results 3-column Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <Card>
+              <div className="flex items-center space-x-2 mb-3">
+                <CheckCircle className="h-4 w-4 text-emerald-600" />
+                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Strengths</h3>
               </div>
-              <ul className="space-y-3">
+              <ul className="space-y-2 text-xs text-zinc-700">
                 {(analysis.strengths || []).map((strength: string, index: number) => (
                   <li key={index} className="flex items-start">
-                    <span className="w-2 h-2 bg-green-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    <span className="text-green-800">{strength}</span>
+                    <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                    <span className="leading-relaxed">{strength}</span>
                   </li>
                 ))}
               </ul>
             </Card>
 
-            <Card className="bg-yellow-50 border-yellow-200">
-              <div className="flex items-center mb-4">
-                <AlertTriangle className="h-6 w-6 text-yellow-600 mr-3" />
-                <h3 className="text-xl font-bold text-yellow-900">Areas to Improve</h3>
+            <Card>
+              <div className="flex items-center space-x-2 mb-3">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
+                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Areas for Improvement</h3>
               </div>
-              <ul className="space-y-3">
+              <ul className="space-y-2 text-xs text-zinc-700">
                 {(analysis.potentialIssues || []).map((issue: string, index: number) => (
                   <li key={index} className="flex items-start">
-                    <span className="w-2 h-2 bg-yellow-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    <span className="text-yellow-800">{issue}</span>
+                    <span className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                    <span className="leading-relaxed">{issue}</span>
                   </li>
                 ))}
               </ul>
             </Card>
 
-            <Card className="bg-blue-50 border-blue-200">
-              <div className="flex items-center mb-4">
-                <Lightbulb className="h-6 w-6 text-blue-600 mr-3" />
-                <h3 className="text-xl font-bold text-blue-900">AI Suggestions</h3>
+            <Card>
+              <div className="flex items-center space-x-2 mb-3">
+                <Lightbulb className="h-4 w-4 text-zinc-700" />
+                <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Targeted Suggestions</h3>
               </div>
-              <ul className="space-y-3">
+              <ul className="space-y-2 text-xs text-zinc-700">
                 {(analysis.suggestions || []).map((suggestion: string, index: number) => (
                   <li key={index} className="flex items-start">
-                    <span className="w-2 h-2 bg-blue-500 rounded-full mt-2 mr-3 flex-shrink-0"></span>
-                    <span className="text-blue-800">{suggestion}</span>
+                    <span className="w-1.5 h-1.5 bg-zinc-900 rounded-full mt-1.5 mr-2 flex-shrink-0"></span>
+                    <span className="leading-relaxed">{suggestion}</span>
                   </li>
                 ))}
               </ul>
             </Card>
           </div>
-
-          {/* AI Interaction Summary */}
-          {analysis.aiInteractions && (
-            <Card className="mb-8" title="🤖 AI Interaction Summary">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="text-center p-4 bg-purple-50 rounded-lg">
-                  <div className="text-2xl font-bold text-purple-600">{analysis.aiInteractions.totalMessages}</div>
-                  <div className="text-sm text-purple-700">Total Messages</div>
-                </div>
-                <div className="text-center p-4 bg-blue-50 rounded-lg">
-                  <div className="text-2xl font-bold text-blue-600">{analysis.aiInteractions.questionsAsked}</div>
-                  <div className="text-sm text-blue-700">Questions Asked</div>
-                </div>
-                <div className="text-center p-4 bg-green-50 rounded-lg">
-                  <div className="text-2xl font-bold text-green-600">{analysis.aiInteractions.userResponses}</div>
-                  <div className="text-sm text-green-700">Your Responses</div>
-                </div>
-                <div className="text-center p-4 bg-orange-50 rounded-lg">
-                  <div className="text-2xl font-bold text-orange-600">{analysis.aiInteractions.encouragements}</div>
-                  <div className="text-sm text-orange-700">Encouragements</div>
-                </div>
-              </div>
-            </Card>
-          )}
 
           {/* Detailed Feedback */}
           {analysis.detailedFeedback && (
-            <Card className="mb-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-4">Detailed AI Analysis</h2>
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg p-6 border border-indigo-200">
-                <p className="text-gray-800 leading-relaxed">{analysis.detailedFeedback}</p>
-              </div>
+            <Card>
+              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider mb-2">Executive Diagnostic Analysis</h3>
+              <p className="text-xs text-zinc-700 leading-relaxed whitespace-pre-line">{analysis.detailedFeedback}</p>
             </Card>
           )}
 
           {/* Reasoning Timeline */}
-          <Card className="mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Reasoning Timeline</h2>
-            <div className="space-y-4">
-              {chunks.map((chunk, index) => (
-                <div key={chunk.id} className="flex items-start space-x-4">
-                  <div className="flex-shrink-0">
-                    <div className={`w-4 h-4 rounded-full ${getStageColor(chunk.stage || 'general')}`}></div>
+          <Card>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xs font-bold text-zinc-900 uppercase tracking-wider">Reasoning Sequence Timeline</h3>
+              <span className="text-xs font-mono text-zinc-400">{chunks.length} entries</span>
+            </div>
+            <div className="space-y-3 max-h-72 overflow-y-auto custom-scrollbar">
+              {chunks.map((chunk) => (
+                <div key={chunk.id} className="p-3 bg-zinc-50 border border-zinc-200/70 rounded-xl text-xs space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-zinc-900 uppercase text-[10px]">
+                      Stage: {chunk.stage || 'general'}
+                    </span>
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      {Math.round(chunk.confidence * 100)}% confidence
+                    </span>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-sm font-medium text-gray-900">
-                        Stage: {chunk.stage || 'general'}
-                      </span>
-                      <span className="text-xs text-gray-500">
-                        {Math.round(chunk.confidence * 100)}% confidence
-                      </span>
-                    </div>
-                    <p className="text-gray-700 text-sm">{chunk.transcript}</p>
-                  </div>
+                  <p className="text-zinc-700 leading-relaxed font-sans">{chunk.transcript}</p>
                 </div>
               ))}
             </div>
           </Card>
-
-          {/* Action Buttons */}
-          <div className="flex justify-center space-x-6">
-            <Button
-              onClick={navigateToSSA}
-              className="bg-blue-500 hover:bg-blue-600 text-white px-8 py-3"
-              rightIcon={<ArrowRight className="h-5 w-5" />}
-            >
-              Start SSA Coaching
-            </Button>
-            
-            <Button
-              onClick={resetSession}
-              variant="outline"
-              leftIcon={<RotateCcw className="h-5 w-5" />}
-            >
-              New Session
-            </Button>
-          </div>
         </div>
       </div>
     );

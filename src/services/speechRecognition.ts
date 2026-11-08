@@ -160,7 +160,7 @@ export class VoiceReasoningRecorder {
     try {
       this.recognition.start();
       this.isRecording = true;
-    } catch (error) {
+    } catch {
       onError('Failed to start recording');
     }
   }

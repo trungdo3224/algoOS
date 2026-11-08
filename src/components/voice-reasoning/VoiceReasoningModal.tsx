@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Mic, MicOff, Play, Pause, Square, Brain, Volume2, VolumeX, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { X, Mic, Play, Pause, Square, Brain, Volume2, AlertCircle, Wifi, WifiOff } from 'lucide-react';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 import { VoiceReasoningRecorder, SpeechChunk, analyzeReasoningPatterns } from '../../services/speechRecognition';
@@ -46,7 +46,7 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
 
   // Voice settings
   const [selectedVoice, setSelectedVoice] = useState<Voice | null>(null);
-  const [availableVoices, setAvailableVoices] = useState<Voice[]>([]);
+  const [_availableVoices, setAvailableVoices] = useState<Voice[]>([]);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   // AI interaction state
@@ -61,7 +61,7 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
   const [isVoiceServiceAvailable, setIsVoiceServiceAvailable] = useState(true);
 
   // Debug state
-  const [debugInfo, setDebugInfo] = useState<string>('');
+  const [_debugInfo, setDebugInfo] = useState<string>('');
   const [silenceCountdown, setSilenceCountdown] = useState<number>(0);
 
   const recorderRef = useRef<VoiceReasoningRecorder | null>(null);
@@ -304,7 +304,7 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
     }
   };
 
-  const generateQuestionResponse = (transcript: string, stage: string) => {
+  const generateQuestionResponse = (transcript: string, _stage: string) => {
     if (transcript.includes('time complexity') || transcript.includes('complexity')) {
       return "Great question about complexity! Think about how many times you're iterating through your data and what operations you're performing in each iteration.";
     } else if (transcript.includes('approach') || transcript.includes('algorithm')) {
@@ -598,10 +598,10 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
     }
     
     switch (type) {
-      case 'question': return 'bg-purple-50 border-purple-200 text-purple-800';
-      case 'encouragement': return 'bg-green-50 border-green-200 text-green-800';
-      case 'response': return 'bg-orange-50 border-orange-200 text-orange-800';
-      default: return 'bg-gray-50 border-gray-200 text-gray-800';
+      case 'question': return 'bg-zinc-50 border-zinc-200 text-zinc-800';
+      case 'encouragement': return 'bg-emerald-50/60 border-emerald-200/80 text-emerald-900';
+      case 'response': return 'bg-amber-50/60 border-amber-200/80 text-amber-900';
+      default: return 'bg-zinc-50 border-zinc-200 text-zinc-800';
     }
   };
 
@@ -616,81 +616,80 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[95vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-zinc-950/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl border border-zinc-200/90 w-full max-w-5xl max-h-[92vh] overflow-y-auto custom-scrollbar">
         {/* Header */}
-        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+        <div className="sticky top-0 bg-white/95 backdrop-blur-sm border-b border-zinc-100 px-6 py-4 flex items-center justify-between z-10">
           <div className="flex items-center space-x-3">
-            <div className="h-10 w-10 bg-gradient-to-r from-purple-500 to-blue-600 rounded-lg flex items-center justify-center">
-              <Brain className="h-6 w-6 text-white" />
+            <div className="h-9 w-9 bg-zinc-950 text-white rounded-xl flex items-center justify-center shadow-sm">
+              <Brain className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold text-gray-900">Voice Reasoning Session</h2>
-              <p className="text-sm text-gray-600">{problem.title}</p>
+              <h2 className="text-base font-bold text-zinc-950">Voice Reasoning Session</h2>
+              <p className="text-xs text-zinc-500">{problem.title}</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-right">
-              <div className="text-lg font-bold">{formatDuration(sessionDuration)}</div>
-              <div className="text-xs text-gray-500 flex items-center">
+              <div className="text-base font-bold font-mono text-zinc-900">{formatDuration(sessionDuration)}</div>
+              <div className="text-[11px] text-zinc-500 flex items-center justify-end font-mono">
                 {isVoiceServiceAvailable ? (
                   <>
-                    <Wifi className="h-3 w-3 mr-1" />
-                    Voice Available
+                    <Wifi className="h-3 w-3 mr-1 text-emerald-600" />
+                    <span>Voice Ready</span>
                   </>
                 ) : (
                   <>
-                    <WifiOff className="h-3 w-3 mr-1" />
-                    Voice Limited
+                    <WifiOff className="h-3 w-3 mr-1 text-amber-600" />
+                    <span>Voice Limited</span>
                   </>
                 )}
               </div>
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-500 transition-colors"
+              className="p-1 rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
             >
-              <X className="h-6 w-6" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-6 space-y-6">
           {/* Voice Service Status */}
           {voiceError && (
-            <Card className={`mb-4 border-2 ${voiceError.type === 'rate_limit' ? 'border-orange-300 bg-orange-50' : 'border-red-300 bg-red-50'}`}>
-              <div className="flex items-start justify-between">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className={`h-5 w-5 mt-0.5 ${voiceError.type === 'rate_limit' ? 'text-orange-600' : 'text-red-600'}`} />
-                  <div>
-                    <h3 className={`font-medium ${voiceError.type === 'rate_limit' ? 'text-orange-900' : 'text-red-900'}`}>
-                      {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Service Error'}
-                    </h3>
-                    <p className={`text-sm ${voiceError.type === 'rate_limit' ? 'text-orange-800' : 'text-red-800'}`}>
-                      {voiceError.message}
+            <div className={`p-4 rounded-xl border ${voiceError.type === 'rate_limit' ? 'border-amber-200 bg-amber-50/60' : 'border-rose-200 bg-rose-50/60'}`}>
+              <div className="flex items-start space-x-3">
+                <AlertCircle className={`h-4 w-4 mt-0.5 flex-shrink-0 ${voiceError.type === 'rate_limit' ? 'text-amber-600' : 'text-rose-600'}`} />
+                <div>
+                  <h3 className={`text-xs font-semibold ${voiceError.type === 'rate_limit' ? 'text-amber-900' : 'text-rose-900'}`}>
+                    {voiceError.type === 'rate_limit' ? 'Voice Service Rate Limited' : 'Voice Service Notice'}
+                  </h3>
+                  <p className={`text-xs mt-0.5 ${voiceError.type === 'rate_limit' ? 'text-amber-800' : 'text-rose-800'}`}>
+                    {voiceError.message}
+                  </p>
+                  {voiceError.type === 'rate_limit' && (
+                    <p className="text-xs text-amber-700 mt-1 font-medium">
+                      You can continue speaking or typing — speech recognition and text feedback remain active.
                     </p>
-                    {voiceError.type === 'rate_limit' && (
-                      <p className="text-sm text-orange-700 mt-1">
-                        💡 You can continue the session - text responses will still work!
-                      </p>
-                    )}
-                  </div>
+                  )}
                 </div>
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Recording Controls */}
-          <Card className="mb-6">
-            <div className="flex flex-col items-center space-y-6">
-              <div className="flex items-center space-x-4">
+          <Card>
+            <div className="flex flex-col items-center space-y-5">
+              <div className="flex items-center space-x-3">
                 {!isRecording && !isPaused && (
                   <Button
                     onClick={startRecording}
-                    className="bg-red-500 hover:bg-red-600 text-white px-8 py-4 text-lg"
-                    leftIcon={<Mic className="h-6 w-6" />}
+                    size="lg"
+                    className="bg-zinc-950 hover:bg-zinc-800 text-white font-semibold px-8"
+                    leftIcon={<Mic className="h-5 w-5" />}
                   >
-                    Start Interactive Session
+                    Start Interactive Reasoning
                   </Button>
                 )}
 
@@ -699,14 +698,14 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
                     <Button
                       onClick={pauseRecording}
                       variant="outline"
-                      leftIcon={<Pause className="h-5 w-5" />}
+                      leftIcon={<Pause className="h-4 w-4" />}
                     >
                       Pause
                     </Button>
                     <Button
                       onClick={stopRecording}
-                      className="bg-red-500 hover:bg-red-600 text-white"
-                      leftIcon={<Square className="h-5 w-5" />}
+                      className="bg-rose-600 hover:bg-rose-700 text-white"
+                      leftIcon={<Square className="h-4 w-4" />}
                     >
                       Stop & Analyze
                     </Button>
@@ -717,15 +716,15 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
                   <>
                     <Button
                       onClick={resumeRecording}
-                      className="bg-green-500 hover:bg-green-600 text-white"
-                      leftIcon={<Play className="h-5 w-5" />}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      leftIcon={<Play className="h-4 w-4" />}
                     >
                       Resume
                     </Button>
                     <Button
                       onClick={stopRecording}
-                      className="bg-red-500 hover:bg-red-600 text-white"
-                      leftIcon={<Square className="h-5 w-5" />}
+                      className="bg-rose-600 hover:bg-rose-700 text-white"
+                      leftIcon={<Square className="h-4 w-4" />}
                     >
                       Stop & Analyze
                     </Button>
@@ -735,50 +734,47 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
 
               {/* Live Transcript */}
               {(isRecording || isPaused) && (
-                <div className="w-full">
-                  <h3 className="text-sm font-medium text-gray-700 mb-2">Live Transcript:</h3>
-                  <div className="bg-gray-50 rounded-lg p-4 min-h-[100px] border-2 border-dashed border-gray-300">
-                    <p className="text-gray-800">
-                      {currentTranscript || (isPaused ? 'Recording paused...' : 'Speak your thoughts...')}
+                <div className="w-full space-y-1.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-zinc-700">Live Speech Telemetry</span>
+                    <span className="text-[11px] font-mono text-zinc-400">Continuous Speech-to-Text</span>
+                  </div>
+                  <div className="bg-zinc-50 border border-zinc-200/90 rounded-xl p-4 min-h-[110px] text-xs font-mono leading-relaxed">
+                    <p className="text-zinc-800">
+                      {currentTranscript || (isPaused ? 'Recording paused...' : 'Speak your thought process aloud...')}
                       {isRecording && !isPaused && (
-                        <span className="inline-block w-2 h-4 bg-red-500 ml-1 animate-pulse"></span>
+                        <span className="inline-block w-1.5 h-3.5 bg-zinc-900 ml-1.5 animate-pulse align-middle"></span>
                       )}
                     </p>
                   </div>
                 </div>
               )}
 
-              {/* Recording Status */}
+              {/* Recording Status Bar */}
               {(isRecording || isPaused) && (
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <div className="flex items-center">
-                    {isRecording && !isPaused ? (
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse mr-2"></div>
-                    ) : (
-                      <div className="w-3 h-3 bg-yellow-500 rounded-full mr-2"></div>
-                    )}
-                    <span>{isRecording && !isPaused ? 'Recording...' : 'Paused'}</span>
+                <div className="flex flex-wrap items-center justify-center gap-4 text-xs font-mono text-zinc-500">
+                  <div className="flex items-center space-x-1.5">
+                    <span className={`w-2 h-2 rounded-full ${isRecording && !isPaused ? 'bg-rose-500 animate-pulse' : 'bg-amber-500'}`}></span>
+                    <span>{isRecording && !isPaused ? 'Listening' : 'Paused'}</span>
                   </div>
-                  <div className="flex items-center">
-                    <Brain className="h-4 w-4 mr-1" />
-                    <span>{chunks.length} chunks captured</span>
+                  <div className="flex items-center space-x-1.5">
+                    <Brain className="h-3.5 w-3.5 text-zinc-400" />
+                    <span>{chunks.length} chunks</span>
                   </div>
                   {aiMessages.length > 0 && (
-                    <div className="flex items-center">
-                      <Brain className="h-4 w-4 mr-1 text-purple-600" />
-                      <span>{aiMessages.length} AI interactions</span>
+                    <div className="flex items-center space-x-1.5">
+                      <span>{aiMessages.length} AI prompts</span>
                     </div>
                   )}
                   {isPlayingAudio && (
-                    <div className="flex items-center">
-                      <Volume2 className="h-4 w-4 mr-1 text-green-600 animate-pulse" />
-                      <span>AI Speaking...</span>
+                    <div className="flex items-center space-x-1.5 text-emerald-700 font-semibold">
+                      <Volume2 className="h-3.5 w-3.5 animate-pulse" />
+                      <span>Audio Active</span>
                     </div>
                   )}
                   {silenceCountdown > 0 && (
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full animate-pulse mr-2"></div>
-                      <span className="text-orange-600">AI response in {silenceCountdown}s</span>
+                    <div className="flex items-center space-x-1 text-amber-700">
+                      <span>Probing in {silenceCountdown}s</span>
                     </div>
                   )}
                 </div>
@@ -788,30 +784,38 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
 
           {/* AI Interaction Panel */}
           {aiMessages.length > 0 && (
-            <Card title="🤖 AI Coaching Conversation" className="mb-6">
-              <div className="space-y-3 max-h-80 overflow-y-auto mb-4">
+            <Card>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-semibold tracking-tight text-zinc-900">
+                  AI Dialogue Stream
+                </h3>
+                <span className="text-[11px] font-mono text-zinc-400">
+                  {aiMessages.length} exchanges
+                </span>
+              </div>
+              <div className="space-y-3 max-h-72 overflow-y-auto mb-4 custom-scrollbar">
                 {aiMessages.map((message) => (
                   <div
                     key={message.id}
-                    className={`p-3 rounded-lg border ${getMessageTypeColor(message.type, message.isUser)}`}
+                    className={`p-3.5 rounded-xl border text-xs leading-relaxed ${getMessageTypeColor(message.type, message.isUser)}`}
                   >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-medium">
-                        {message.isUser ? '👤 You' : '🤖 AI Coach'}
+                    <div className="flex items-center justify-between mb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-500">
+                      <span>
+                        {message.isUser ? 'You' : 'Socratic Assistant'}
                       </span>
-                      <span className="text-xs opacity-75">
+                      <span className="font-mono">
                         {message.timestamp.toLocaleTimeString()}
                       </span>
                     </div>
-                    <p className="text-sm">{message.content}</p>
+                    <p className="text-zinc-800 text-xs leading-relaxed">{message.content}</p>
                     {!message.isUser && (
                       <button
                         onClick={() => playAIMessage(message.content)}
-                        className="mt-2 text-xs text-blue-600 hover:text-blue-800 flex items-center"
+                        className="mt-2 text-xs text-zinc-900 font-semibold hover:underline flex items-center"
                         disabled={isPlayingAudio || !isVoiceServiceAvailable}
                       >
                         <Volume2 className="h-3 w-3 mr-1" />
-                        {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Play Again' : 'Voice Unavailable'}
+                        {isPlayingAudio ? 'Playing...' : isVoiceServiceAvailable ? 'Replay Voice' : 'Voice Limited'}
                       </button>
                     )}
                   </div>
@@ -820,12 +824,7 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
 
               {/* Chat Input */}
               {showChatInput && (
-                <div className="border-t pt-4">
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-3">
-                    <p className="text-sm text-yellow-800">
-                      💬 The AI coach is waiting for your response. You can type here or continue speaking.
-                    </p>
-                  </div>
+                <div className="border-t border-zinc-100 pt-3">
                   <div className="flex space-x-2">
                     <input
                       type="text"
@@ -833,12 +832,12 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
                       onChange={(e) => setUserInput(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleUserResponse()}
                       placeholder="Type your response to the AI coach..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-3 py-2 text-xs bg-zinc-50/50 border border-zinc-200/90 rounded-lg focus:outline-none focus:border-zinc-900 text-zinc-900"
                     />
                     <Button
                       onClick={handleUserResponse}
                       disabled={!userInput.trim()}
-                      leftIcon={<Brain className="h-4 w-4" />}
+                      size="sm"
                     >
                       Send
                     </Button>
@@ -850,42 +849,43 @@ const VoiceReasoningModal: React.FC<VoiceReasoningModalProps> = ({
 
           {/* Analysis Loading */}
           {isAnalyzing && (
-            <Card className="mb-6">
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto mb-4"></div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">Analyzing Your Interactive Session...</h3>
-                <p className="text-gray-600">Gemini AI is processing your reasoning patterns and AI interactions</p>
+            <Card>
+              <div className="text-center py-10 space-y-3">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-zinc-900 border-t-transparent mx-auto"></div>
+                <h3 className="text-sm font-semibold text-zinc-900">Processing Reasoning Telemetry...</h3>
+                <p className="text-xs text-zinc-500">Gemini AI is analyzing hesitation intervals, pattern identification, and conceptual clarity.</p>
               </div>
             </Card>
           )}
 
           {/* Analysis Results */}
           {analysis && (
-            <div className="space-y-6">
-              <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
-                <div className="text-center">
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">Interactive Reasoning Score</h3>
-                  <div className="text-4xl font-bold text-blue-600 mb-2">{analysis.overallScore}/10</div>
-                  <p className="text-gray-600">{analysis.detailedFeedback}</p>
-                </div>
-              </Card>
+            <div className="space-y-4">
+              <div className="p-5 bg-white border border-zinc-200/90 rounded-xl shadow-sm text-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400 block mb-1">
+                  Reasoning Quality Index
+                </span>
+                <div className="text-3xl font-bold font-mono text-zinc-900 mb-2">{analysis.overallScore}/10</div>
+                <p className="text-xs text-zinc-600 max-w-xl mx-auto leading-relaxed">{analysis.detailedFeedback}</p>
+              </div>
 
               {/* Action Buttons */}
-              <div className="flex justify-center space-x-4">
+              <div className="flex justify-center space-x-3 pt-2">
                 <Button
                   onClick={handleComplete}
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                  rightIcon={<Brain className="h-4 w-4" />}
+                  variant="outline"
+                  size="md"
                 >
-                  Complete Session
+                  Save & Complete
                 </Button>
                 
                 <Button
                   onClick={handleStartSSA}
-                  className="bg-blue-500 hover:bg-blue-600 text-white"
-                  rightIcon={<Brain className="h-4 w-4" />}
+                  variant="primary"
+                  size="md"
+                  rightIcon={<ArrowRight className="h-4 w-4" />}
                 >
-                  Start SSA Coaching
+                  Continue to SSA Coaching
                 </Button>
               </div>
             </div>

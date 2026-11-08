@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, UserPlus, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, UserPlus, AlertCircle } from 'lucide-react';
 import Button from '../ui/Button';
 import { useAppDispatch, useAppSelector } from '../../hooks/reduxHooks';
 import { signup } from '../../features/user/userSlice';
@@ -11,7 +11,7 @@ interface SignUpFormProps {
 
 const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
   const dispatch = useAppDispatch();
-  const { loading, error: signupError } = useAppSelector((state) => state.user);
+  const { loading } = useAppSelector((state) => state.user);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,17 +19,17 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
 
-  const validateEmail = (email: string) => {
+  const validateEmail = (emailStr: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+    return emailRegex.test(emailStr);
   };
 
-  const validatePassword = (password: string) => {
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    const isLongEnough = password.length >= 8;
+  const validatePassword = (pwd: string) => {
+    const hasUpperCase = /[A-Z]/.test(pwd);
+    const hasLowerCase = /[a-z]/.test(pwd);
+    const hasNumbers = /\d/.test(pwd);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(pwd);
+    const isLongEnough = pwd.length >= 8;
 
     if (!isLongEnough) return 'Password must be at least 8 characters long';
     if (!hasUpperCase) return 'Password must contain at least one uppercase letter';
@@ -67,30 +67,31 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
     try {
       await dispatch(signup({ email, password, name })).unwrap();
       onSuccess?.();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during sign up');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError(message || 'An error occurred during sign up');
     }
   };
 
   return (
-    <div className="w-full max-w-md">
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-900">Create an Account</h2>
-        <p className="mt-2 text-sm text-gray-600">
-          Join our learning community and start your journey
+    <div className="w-full">
+      <div className="text-center mb-6">
+        <h3 className="text-xl font-bold tracking-tight text-zinc-950">Create an Account</h3>
+        <p className="mt-1 text-xs text-zinc-500">
+          Join AlgoMind to access structured Socratic coaching
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md text-sm flex items-start">
-            <AlertTriangle className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5" />
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 px-3.5 py-2.5 rounded-lg text-xs font-medium flex items-start">
+            <AlertCircle className="h-4 w-4 mr-2 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>
         )}
 
         <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
             Full Name
           </label>
           <input
@@ -98,15 +99,15 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
             type="text"
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter your full name"
+            className="w-full px-3 py-2 text-sm bg-zinc-50/50 hover:bg-white border border-zinc-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:bg-white transition-all text-zinc-900"
+            placeholder="Jane Doe"
             maxLength={50}
             required
           />
         </div>
 
         <div>
-          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
             Email Address
           </label>
           <input
@@ -114,79 +115,79 @@ const SignUpForm: React.FC<SignUpFormProps> = ({ onSuccess, onLoginClick }) => {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter your email"
+            className="w-full px-3 py-2 text-sm bg-zinc-50/50 hover:bg-white border border-zinc-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:bg-white transition-all text-zinc-900"
+            placeholder="jane@company.com"
             maxLength={100}
             required
           />
         </div>
 
         <div>
-          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="password" className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
             Password
           </label>
-          <div className="mt-1 relative">
+          <div className="relative">
             <input
               id="password"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Create a password"
+              className="w-full px-3 py-2 pr-10 text-sm bg-zinc-50/50 hover:bg-white border border-zinc-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:bg-white transition-all text-zinc-900"
+              placeholder="••••••••"
               maxLength={100}
               required
             />
             <button
               type="button"
-              className="absolute inset-y-0 right-0 pr-3 flex items-center"
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-zinc-600"
               onClick={() => setShowPassword(!showPassword)}
             >
               {showPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400" />
+                <EyeOff className="h-4 w-4" />
               ) : (
-                <Eye className="h-5 w-5 text-gray-400" />
+                <Eye className="h-4 w-4" />
               )}
             </button>
           </div>
-          <p className="mt-1 text-xs text-gray-500">
-            Must be at least 8 characters with uppercase, lowercase, number, and special character
+          <p className="mt-1 text-[11px] text-zinc-500">
+            Min. 8 chars with uppercase, lowercase, number & symbol
           </p>
         </div>
 
         <div>
-          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="confirmPassword" className="block text-xs font-semibold uppercase tracking-wider text-zinc-600 mb-1">
             Confirm Password
           </label>
-          <div className="mt-1 relative">
-            <input
-              id="confirmPassword"
-              type={showPassword ? "text" : "password"}
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Confirm your password"
-              maxLength={100}
-              required
-            />
-          </div>
+          <input
+            id="confirmPassword"
+            type={showPassword ? "text" : "password"}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="w-full px-3 py-2 text-sm bg-zinc-50/50 hover:bg-white border border-zinc-200/90 rounded-lg focus:outline-none focus:ring-2 focus:ring-zinc-900 focus:bg-white transition-all text-zinc-900"
+            placeholder="••••••••"
+            maxLength={100}
+            required
+          />
         </div>
 
-        <Button
-          type="submit"
-          className="w-full"
-          isLoading={loading}
-          leftIcon={<UserPlus className="h-4 w-4" />}
-        >
-          Create Account
-        </Button>
+        <div className="pt-2">
+          <Button
+            type="submit"
+            className="w-full justify-center"
+            isLoading={loading}
+            leftIcon={<UserPlus className="h-4 w-4" />}
+          >
+            Create Account
+          </Button>
+        </div>
 
-        <div className="text-center">
-          <p className="text-sm text-gray-600">
+        <div className="pt-3 text-center">
+          <p className="text-xs text-zinc-600">
             Already have an account?{' '}
             <button
               type="button"
               onClick={onLoginClick}
-              className="font-medium text-blue-600 hover:text-blue-500"
+              className="font-semibold text-zinc-950 hover:underline"
             >
               Sign in
             </button>

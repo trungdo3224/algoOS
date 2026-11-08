@@ -154,7 +154,7 @@ If not valid (is_valid: false): Help them think about implementation details, op
           assistant_reply: parsed.assistant_reply
         };
       }
-    } catch (parseError) {
+    } catch {
       console.warn('Could not parse JSON from Gemini response, using fallback');
     }
 
@@ -308,7 +308,7 @@ Generate the JSON response now:`;
         
         return generatedProblem;
       }
-    } catch (parseError) {
+    } catch {
       console.warn('Could not parse JSON from Gemini response, using fallback');
     }
 
@@ -544,7 +544,7 @@ Generate the JSON response now:`;
         
         return realWorldApp;
       }
-    } catch (parseError) {
+    } catch {
       console.warn('Could not parse JSON from Gemini response, using fallback');
     }
 
@@ -559,7 +559,7 @@ Generate the JSON response now:`;
   }
 }
 
-function createFallbackRealWorldApplication(problem: Problem, responseText: string): RealWorldApplication {
+function createFallbackRealWorldApplication(problem: Problem, _responseText: string): RealWorldApplication {
   // Create basic real-world application based on problem tags and difficulty
   const commonPatterns: Record<string, any> = {
     'Array': {
@@ -765,7 +765,7 @@ Respond with a JSON object containing:
           nextSteps: parsed.nextSteps || []
         };
       }
-    } catch (parseError) {
+    } catch {
       console.warn('Could not parse JSON from Gemini response, using fallback analysis');
     }
 

@@ -8,11 +8,11 @@ import SessionControls from '../components/ssa-coaching/SessionControls';
 import SessionSummary from '../components/ssa-coaching/SessionSummary';
 import VoiceReasoningModal from '../components/voice-reasoning/VoiceReasoningModal';
 import Button from '../components/ui/Button';
-import Card from '../components/ui/Card';
 import { useAppSelector } from '../hooks/reduxHooks';
 import { supabase } from '../lib/supabase';
 import { validateStage } from '../services/gemini';
 import type { Problem, SsaSession } from '../lib/supabase';
+import { SAMPLE_PROBLEMS } from '../data/sampleProblems';
 
 interface Message {
   id: string;
@@ -24,6 +24,7 @@ interface Message {
 
 const SsaCoaching: React.FC = () => {
   const { id: userId } = useAppSelector((state) => state.user);
+  const { problems: reduxProblems } = useAppSelector((state) => state.problems);
   const [currentStage, setCurrentStage] = useState(1);
   const [validatedStages, setValidatedStages] = useState<number[]>([]);
   const [isTyping, setIsTyping] = useState(false);
@@ -40,12 +41,12 @@ const SsaCoaching: React.FC = () => {
   const [stageResponses, setStageResponses] = useState<{[key: number]: {userAnswer: string, assistantFeedback: string}}>({});
   const [voiceReasoningAnalysis, setVoiceReasoningAnalysis] = useState<any>(null);
 
-  // Load persisted problem from localStorage on component mount
+  // Load persisted problem from URL or localStorage on component mount
   useEffect(() => {
-    const persistedProblemId = localStorage.getItem('ssa-selected-problem-id');
-    if (persistedProblemId) {
-      console.log('Loading persisted problem ID:', persistedProblemId);
-      // We'll load the actual problem data after fetching problems
+    const urlParams = new URLSearchParams(window.location.search);
+    const problemFromUrl = urlParams.get('problem');
+    if (problemFromUrl) {
+      localStorage.setItem('ssa-selected-problem-id', problemFromUrl);
     }
     fetchProblems();
   }, []);
@@ -91,10 +92,12 @@ const SsaCoaching: React.FC = () => {
       
       if (error) throw error;
       
-      setProblems(data || []);
-      console.log('Fetched problems:', data?.length || 0);
+      const problemList = data && data.length > 0 ? data : (reduxProblems.length > 0 ? reduxProblems : SAMPLE_PROBLEMS);
+      setProblems(problemList);
+      console.log('Fetched problems:', problemList.length);
     } catch (error) {
-      console.error('Error fetching problems:', error);
+      console.warn('Using local problems for SSA coaching:', error);
+      setProblems(reduxProblems.length > 0 ? reduxProblems : SAMPLE_PROBLEMS);
     } finally {
       setLoading(false);
     }
@@ -282,7 +285,7 @@ const SsaCoaching: React.FC = () => {
 
       // Create assistant response based on validation
       let assistantResponse = validation.assistant_reply;
-      let newValidatedStages = [...validatedStages];
+      const newValidatedStages = [...validatedStages];
 
       // If valid and not already validated, mark stage as validated
       if (validation.is_valid && !validatedStages.includes(currentStage)) {
@@ -460,7 +463,7 @@ const SsaCoaching: React.FC = () => {
     setVoiceReasoningAnalysis(null);
   };
 
-  const handleVoiceReasoningComplete = (analysis: any, chunks: any[]) => {
+  const handleVoiceReasoningComplete = (analysis: any, _chunks: any[]) => {
     setVoiceReasoningAnalysis(analysis);
     
     // Add a message about the voice reasoning session
@@ -536,62 +539,67 @@ const SsaCoaching: React.FC = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-7xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-zinc-200">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">SSA Coaching</h1>
-          <p className="text-gray-600">
-            Solve problems with guidance from our Socratic Solve Assistant.
+          <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Socratic Solve Assistant (SSA)</h1>
+          <p className="text-xs sm:text-sm text-zinc-500 mt-0.5">
+            5-stage methodical reasoning guide. Validates logic before implementation.
           </p>
         </div>
-        <div className="flex items-center space-x-3">
+        <div className="flex items-center gap-2 flex-wrap">
           {selectedProblem && (
             <>
               <Button
                 onClick={() => setIsVoiceReasoningOpen(true)}
-                className="bg-purple-500 hover:bg-purple-600 text-white"
-                leftIcon={<Mic className="h-4 w-4" />}
+                variant="secondary"
+                size="sm"
+                leftIcon={<Mic className="h-3.5 w-3.5" />}
               >
                 Voice Reasoning
               </Button>
               <Button
                 onClick={handleDiscardProblem}
                 variant="outline"
-                className="text-red-600 border-red-300 hover:bg-red-50"
+                size="sm"
+                className="text-rose-600 border-rose-200 hover:bg-rose-50"
               >
-                Discard Problem
+                Reset Problem
               </Button>
             </>
           )}
           <Button
             onClick={handleChooseProblem}
-            leftIcon={<Plus className="h-4 w-4" />}
+            size="sm"
+            leftIcon={<Plus className="h-3.5 w-3.5" />}
           >
-            {selectedProblem ? 'Change Problem' : 'Choose Problem'}
+            {selectedProblem ? 'Change Problem' : 'Select Problem'}
           </Button>
         </div>
       </div>
 
       {!selectedProblem ? (
-        <div className="text-center py-12">
-          <div className="mb-4">
-            <div className="mx-auto h-24 w-24 bg-blue-100 rounded-full flex items-center justify-center">
-              <Plus className="h-12 w-12 text-blue-600" />
-            </div>
+        <div className="text-center py-16 bg-white border border-zinc-200/90 rounded-2xl shadow-sm">
+          <div className="mx-auto h-16 w-16 bg-zinc-100 rounded-2xl flex items-center justify-center text-zinc-700 mb-4">
+            <Plus className="h-8 w-8" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Problem Selected</h3>
-          <p className="text-gray-600 mb-4">Choose a problem to start your SSA coaching session.</p>
-          <div className="flex justify-center space-x-3">
+          <h3 className="text-base font-bold text-zinc-950 mb-1">No Problem Active in Session</h3>
+          <p className="text-xs text-zinc-500 mb-6 max-w-sm mx-auto">
+            Choose a problem from the catalog to initialize Socratic coaching.
+          </p>
+          <div className="flex justify-center gap-3">
             <Button
               onClick={handleChooseProblem}
-              leftIcon={<Plus className="h-4 w-4" />}
+              size="sm"
+              leftIcon={<Plus className="h-3.5 w-3.5" />}
             >
-              Choose Problem
+              Select Problem
             </Button>
             <Button
               onClick={() => setIsVoiceReasoningOpen(true)}
-              className="bg-purple-500 hover:bg-purple-600 text-white"
-              leftIcon={<Mic className="h-4 w-4" />}
+              variant="outline"
+              size="sm"
+              leftIcon={<Mic className="h-3.5 w-3.5" />}
             >
               Start with Voice Reasoning
             </Button>
@@ -600,34 +608,37 @@ const SsaCoaching: React.FC = () => {
       ) : (
         <>
           {/* Problem Info Bar */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-3">
-                <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                  <span className="text-blue-600 font-semibold text-sm">
-                    {selectedProblem.difficulty.charAt(0)}
-                  </span>
-                </div>
-                <div>
-                  <h3 className="text-lg font-medium text-blue-900">
-                    {selectedProblem.title}
-                  </h3>
-                  <p className="text-sm text-blue-600">
-                    {selectedProblem.difficulty} • {selectedProblem.tags.slice(0, 3).join(', ')}
-                    {selectedProblem.tags.length > 3 && ` +${selectedProblem.tags.length - 3} more`}
-                  </p>
-                </div>
+          <div className="bg-white border border-zinc-200/90 rounded-xl p-4 shadow-sm flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="h-9 w-9 bg-zinc-950 text-white rounded-lg flex items-center justify-center font-bold text-xs">
+                {selectedProblem.difficulty.charAt(0)}
               </div>
-              <div className="flex items-center space-x-2">
-                {voiceReasoningAnalysis && (
-                  <span className="px-2 py-1 bg-purple-100 text-purple-800 text-xs rounded-full">
-                    Voice Analysis Available
+              <div>
+                <h3 className="text-sm font-bold text-zinc-950">
+                  {selectedProblem.title}
+                </h3>
+                <p className="text-xs text-zinc-500">
+                  <span className={`font-semibold ${
+                    selectedProblem.difficulty === 'Easy' ? 'text-emerald-600' :
+                    selectedProblem.difficulty === 'Medium' ? 'text-amber-600' :
+                    'text-rose-600'
+                  }`}>
+                    {selectedProblem.difficulty}
                   </span>
-                )}
-                <span className="text-sm text-blue-600">
-                  Session in progress
+                  {' '}• {(selectedProblem.tags || []).slice(0, 3).join(', ')}
+                  {(selectedProblem.tags || []).length > 3 && ` +${selectedProblem.tags.length - 3}`}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {voiceReasoningAnalysis && (
+                <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 text-xs rounded border border-zinc-200">
+                  Audio Analyzed
                 </span>
-              </div>
+              )}
+              <span className="text-xs font-mono text-emerald-600 bg-emerald-50 border border-emerald-200/70 px-2 py-0.5 rounded font-medium">
+                Active Session
+              </span>
             </div>
           </div>
 
